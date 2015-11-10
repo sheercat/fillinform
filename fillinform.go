@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// https://github.com/google/re2/wiki/Syntax
+
 package fillinform
 
 import (
@@ -9,8 +11,6 @@ import (
 	"log"
 	"regexp"
 	_ "time"
-
-	"github.com/k0kubun/pp"
 )
 
 const (
@@ -32,55 +32,55 @@ const (
 	ATTR_VALUE = `(?:"[^"]*"|'[^']*'|[^'"/>\s]+|[\w\-]+)`
 	ATTR       = `(?:` + SPACE + `+(?:` + ATTR_NAME + `(?:=` + ATTR_VALUE + `)?))`
 
-	FORM     = `(?:<` + Form + ATTR + `+` + SPACE + `*>)`     // <form>
-	INPUT    = `(?:<` + Input + ATTR + `+` + SPACE + `*/?>)`  // <input>
-	SELECT   = `(?:<` + Select + ATTR + `+` + SPACE + `*>)`   // <select>
-	OPTION   = `(?:<` + Option + ATTR + `*` + SPACE + `*>)`   // <option>
-	TEXTAREA = `(?:<` + Textarea + ATTR + `+` + SPACE + `*>)` // <textarea>
+	FORM     = `(?:<` + Form + ATTR + `+` + SPACE + `*>)`
+	INPUT    = `(?:<` + Input + ATTR + `+` + SPACE + `*/?>)`
+	SELECT   = `(?:<` + Select + ATTR + `+` + SPACE + `*>)`
+	OPTION   = `(?:<` + Option + ATTR + `*` + SPACE + `*>)`
+	TEXTAREA = `(?:<` + Textarea + ATTR + `+` + SPACE + `*>)`
 
 	EndFORM     = `(?:</` + Form + `>)`
 	EndSELECT   = `(?:</` + Select + `>)`
 	EndOPTION   = `(?:</` + Option + `>)`
 	EndTEXTAREA = `(?:</` + Textarea + `>)`
 
-	CHECKED  = `(?:` + Checked + ` (?:=(?:"` + Checked + `"|'` + Checked + `'|` + Checked + `))?)`
-	SELECTED = `(?:` + Selected + ` (?:=(?:"` + Selected + `"|'` + Selected + `'|` + Selected + `))?)`
-	MULTIPLE = `(?:` + Multiple + ` (?:=(?:"` + Multiple + `"|'` + Multiple + `'|` + Multiple + `))?)`
+	CHECKED  = `(?:` + Checked + `(?:=(?:"` + Checked + `"|'` + Checked + `'|` + Checked + `))?)`
+	SELECTED = `(?:` + Selected + `(?:=(?:"` + Selected + `"|'` + Selected + `'|` + Selected + `))?)`
+	MULTIPLE = `(?:` + Multiple + `(?:=(?:"` + Multiple + `"|'` + Multiple + `'|` + Multiple + `))?)`
 )
+
+type byteString []byte
 
 type FillinFormOptions struct {
 	FillPassword bool
-	IgnoreFields []string
+	IgnoreFields map[string]bool
 	IgnoreTypes  map[string]bool
 	Target       string
 	Escape       bool
 	DecodeEntity bool
+	Data         map[string]interface{}
 }
 
 type Filler struct {
 	FillinFormOptions
 }
 
-func (f Filler) multilineRegexp(regstr string) *regexp.Regexp {
+func (f Filler) compileMultiLine(regstr string) *regexp.Regexp {
 	return regexp.MustCompile(`(?ms:` + regstr + `)`)
 }
 
 func Fill(body *[]byte, data map[string]interface{}, options map[string]interface{}) ([]byte, error) {
 
-	filler := &Filler{}
+	filler := &Filler{FillinFormOptions{Data: data}}
 
-	return filler.fill(body, data)
+	return filler.fill(body)
 }
 
-func (f Filler) fill(body *[]byte, data map[string]interface{}) ([]byte, error) {
+func (f Filler) fill(body *[]byte) ([]byte, error) {
 	log.Println("-- Start")
 
 	// pp.Println(string(*body))
-	pp.Println(data)
 
-	reg := f.multilineRegexp(FORM + `(.*?)` + EndFORM)
-
-	filled := reg.ReplaceAllFunc(*body, f.fillForm)
+	filled := f.compileMultiLine(FORM+`(.*?)`+EndFORM).ReplaceAllFunc(*body, f.fillForm)
 
 	log.Println("-- End")
 
@@ -90,37 +90,130 @@ func (f Filler) fill(body *[]byte, data map[string]interface{}) ([]byte, error) 
 func (f Filler) fillForm(formbody []byte) []byte {
 	log.Println("-- -- Start")
 
-	reg := f.multilineRegexp(INPUT)
-	replaced := reg.ReplaceAllFunc(formbody, f.fillInput)
+	replaced := f.compileMultiLine(INPUT).ReplaceAllFunc(formbody, f.fillInput)
 
-	reg = f.multilineRegexp(SELECT)
-	replaced = reg.ReplaceAllFunc(replaced, f.fillSelect)
+	replaced = f.compileMultiLine(SELECT+`(.*?)`+EndSELECT).ReplaceAllFunc(replaced, f.fillSelect)
 
-	reg = f.multilineRegexp(TEXTAREA)
-	replaced = reg.ReplaceAllFunc(replaced, f.fillTextarea)
+	replaced = f.compileMultiLine(TEXTAREA+`(.*?)`+EndTEXTAREA).ReplaceAllFunc(replaced, f.fillTextarea)
 
 	log.Println("-- -- End")
 	return replaced
 }
 
-func (f Filler) getInputType(tag []byte) []byte {
-	reg := f.multilineRegexp(Type + `=(` + ATTR_VALUE + `)`)
-	inputType := reg.Find(tag)
-	log.Println(string(inputType))
-	return inputType
+func (f Filler) unquote(tag []byte) []byte {
+	newTag := f.compileMultiLine(`['"](.*)['"]`).FindSubmatch(tag)
+	if cap(newTag) >= 2 {
+		return newTag[1]
+	}
+	return tag
+}
+
+func (f Filler) getType(tag []byte) string {
+	itype := f.compileMultiLine(Type + `=(` + ATTR_VALUE + `)`).FindSubmatch(tag)
+	if cap(itype) == 2 {
+		log.Println(string(itype[1]))
+		return string(f.unquote(itype[1]))
+	}
+	return string(tag)
+}
+
+func (f Filler) getValue(tag []byte) string {
+	value := f.compileMultiLine(Value + `=(` + ATTR_VALUE + `)`).FindSubmatch(tag)
+	if cap(value) == 2 {
+		return string(f.unquote(value[1]))
+	}
+	return ""
+}
+
+func (f Filler) getName(tag []byte) string {
+	name := f.compileMultiLine(Name + `=(` + ATTR_VALUE + `)`).FindSubmatch(tag)
+	if cap(name) == 2 {
+		return string(f.unquote(name[1]))
+	}
+	return string(tag)
+}
+
+func (f Filler) escapeHTML(tag string) string {
+	tag = regexp.MustCompile(`&`).ReplaceAllString(tag, `&amp;`)
+	tag = regexp.MustCompile(`<`).ReplaceAllString(tag, `&lt;`)
+	tag = regexp.MustCompile(`>`).ReplaceAllString(tag, `&gt;`)
+	tag = regexp.MustCompile(`"`).ReplaceAllString(tag, `&quot;`)
+	return tag
+}
+
+func (f Filler) getParam(name string) (string, bool) {
+	// ignore
+	if _, ok := f.IgnoreFields[name]; ok {
+		log.Println("!!! field:", name, "is ignore")
+		return "", false
+	}
+	if param, ok := f.Data[name]; ok {
+		if casted, ok := param.(string); ok {
+			return casted, true
+		}
+	}
+
+	return "", false
 }
 
 func (f Filler) fillInput(tag []byte) []byte {
 	log.Println("INPUT" + string(tag))
 
-	inputType := f.getInputType(tag)
-	if inputType == nil {
-		inputType = []byte("text")
+	inputType := f.getType(tag)
+	if inputType == "" {
+		inputType = "text"
 	}
 
 	// ignore
-	if _, ok := f.IgnoreTypes[string(inputType)]; ok {
+	if _, ok := f.IgnoreTypes[inputType]; ok {
+		log.Println("!!! type:", inputType, "is ignore")
 		return tag
+	}
+
+	paramValue, exists := f.getParam(f.getName(tag))
+	if !exists {
+		log.Println("!!! paramValue is nullstring")
+		return tag
+	}
+
+	log.Println("!!!", inputType)
+	if inputType == "checkbox" || inputType == "radio" {
+		value := f.getValue(tag)
+
+		if paramValue == value {
+			if !f.compileMultiLine(CHECKED).Match(tag) {
+				tag = f.compileMultiLine(SPACE+`*(/?)>\z`).ReplaceAll(tag, byteString(`checked="checked"$1>`))
+			}
+		} else {
+			tag = f.compileMultiLine(SPACE+CHECKED).ReplaceAll(tag, byteString(``))
+		}
+	} else { // text
+		escapedValue := f.escapeHTML(paramValue)
+		reg := f.compileMultiLine(Value + `=` + ATTR_VALUE)
+		if reg.Match(tag) {
+			tag = reg.ReplaceAll(tag, byteString(`value="`+escapedValue+`"`))
+		} else {
+			tag = f.compileMultiLine(SPACE+`*(/?)>\z`).ReplaceAll(tag, byteString(`value="`+escapedValue+`"$1>`))
+		}
+	}
+
+	return tag
+}
+
+func (f Filler) fillTextarea(tag []byte) []byte {
+	log.Println("TEXTAREA" + string(tag))
+
+	paramValue, exists := f.getParam(f.getName(tag))
+	if !exists {
+		log.Println("!!! paramValue is nullstring")
+		return tag
+	}
+	escapedValue := f.escapeHTML(paramValue)
+	log.Println("!!!", escapedValue)
+	// tag = f.compileMultiLine(`(`+TEXTAREA+`)(.*?)(`+EndTEXTAREA+`)`).ReplaceAll(tag, byteString(`$1`+escapedValue+`$3`))
+	matched := f.compileMultiLine(`(` + TEXTAREA + `).*?(` + EndTEXTAREA + `)`).FindSubmatch(tag)
+	if cap(matched) == 3 {
+		tag = byteString(string(matched[1]) + escapedValue + string(matched[2]))
 	}
 
 	return tag
@@ -129,11 +222,37 @@ func (f Filler) fillInput(tag []byte) []byte {
 func (f Filler) fillSelect(tag []byte) []byte {
 	log.Println("SELECT" + string(tag))
 
+	paramValue, exists := f.getParam(f.getName(tag))
+	if !exists {
+		log.Println("!!! paramValue is nullstring")
+		return tag
+	}
+
+	if f.compileMultiLine(MULTIPLE).Match(tag) {
+		return tag
+	}
+
+	f.compileMultiLine(OPTION+`.*?`+EndOPTION).ReplaceAllFunc(tag, func(tag []byte) []byte { return f.fillOption(tag, paramValue) })
+
 	return tag
 }
 
-func (f Filler) fillTextarea(tag []byte) []byte {
-	log.Println("TEXTAREA" + string(tag))
+func (f Filler) fillOption(tag []byte, paramValue string) []byte {
+	log.Println("OPTION" + string(tag))
+
+	value := f.getValue(tag)
+	if value == "" {
+		value = string(f.compileMultiLine(OPTION+`(.*?)`+EndOPTION).ReplaceAll(tag, byteString(`$1`)))
+		log.Println(paramValue)
+	}
+
+	if paramValue == value {
+		if !f.compileMultiLine(SELECTED).Match(tag) {
+			tag = f.compileMultiLine(SPACE+`*>\z`).ReplaceAll(tag, byteString(`selected="selected">`))
+		}
+	} else {
+		tag = f.compileMultiLine(SPACE+SELECTED).ReplaceAll(tag, byteString(``))
+	}
 
 	return tag
 }
