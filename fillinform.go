@@ -78,8 +78,6 @@ func Fill(body *[]byte, data map[string]interface{}, options map[string]interfac
 func (f Filler) fill(body *[]byte) ([]byte, error) {
 	log.Println("-- Start")
 
-	// pp.Println(string(*body))
-
 	filled := f.compileMultiLine(FORM+`(.*?)`+EndFORM).ReplaceAllFunc(*body, f.fillForm)
 
 	log.Println("-- End")
@@ -88,15 +86,12 @@ func (f Filler) fill(body *[]byte) ([]byte, error) {
 }
 
 func (f Filler) fillForm(formbody []byte) []byte {
-	log.Println("-- -- Start")
-
 	replaced := f.compileMultiLine(INPUT).ReplaceAllFunc(formbody, f.fillInput)
 
 	replaced = f.compileMultiLine(SELECT+`(.*?)`+EndSELECT).ReplaceAllFunc(replaced, f.fillSelect)
 
 	replaced = f.compileMultiLine(TEXTAREA+`(.*?)`+EndTEXTAREA).ReplaceAllFunc(replaced, f.fillTextarea)
 
-	log.Println("-- -- End")
 	return replaced
 }
 
@@ -172,17 +167,15 @@ func (f Filler) fillInput(tag []byte) []byte {
 
 	paramValue, exists := f.getParam(f.getName(tag))
 	if !exists {
-		log.Println("!!! paramValue is nullstring")
 		return tag
 	}
 
-	log.Println("!!!", inputType)
 	if inputType == "checkbox" || inputType == "radio" {
 		value := f.getValue(tag)
 
 		if paramValue == value {
 			if !f.compileMultiLine(CHECKED).Match(tag) {
-				tag = f.compileMultiLine(SPACE+`*(/?)>\z`).ReplaceAll(tag, byteString(`checked="checked"$1>`))
+				tag = f.compileMultiLine(SPACE+`*(/?)>\z`).ReplaceAll(tag, byteString(` checked="checked"$1>`))
 			}
 		} else {
 			tag = f.compileMultiLine(SPACE+CHECKED).ReplaceAll(tag, byteString(``))
@@ -205,7 +198,6 @@ func (f Filler) fillTextarea(tag []byte) []byte {
 
 	paramValue, exists := f.getParam(f.getName(tag))
 	if !exists {
-		log.Println("!!! paramValue is nullstring")
 		return tag
 	}
 	escapedValue := f.escapeHTML(paramValue)
@@ -224,7 +216,6 @@ func (f Filler) fillSelect(tag []byte) []byte {
 
 	paramValue, exists := f.getParam(f.getName(tag))
 	if !exists {
-		log.Println("!!! paramValue is nullstring")
 		return tag
 	}
 
@@ -232,13 +223,12 @@ func (f Filler) fillSelect(tag []byte) []byte {
 		return tag
 	}
 
-	f.compileMultiLine(OPTION+`.*?`+EndOPTION).ReplaceAllFunc(tag, func(tag []byte) []byte { return f.fillOption(tag, paramValue) })
-
-	return tag
+	return f.compileMultiLine(OPTION+`.*?`+EndOPTION).ReplaceAllFunc(tag, func(tag []byte) []byte { return f.fillOption(tag, paramValue) })
 }
 
 func (f Filler) fillOption(tag []byte, paramValue string) []byte {
 	log.Println("OPTION" + string(tag))
+	log.Println("OPTION" + paramValue)
 
 	value := f.getValue(tag)
 	if value == "" {
@@ -247,8 +237,11 @@ func (f Filler) fillOption(tag []byte, paramValue string) []byte {
 	}
 
 	if paramValue == value {
+		log.Println("!!!match:")
 		if !f.compileMultiLine(SELECTED).Match(tag) {
-			tag = f.compileMultiLine(SPACE+`*>\z`).ReplaceAll(tag, byteString(`selected="selected">`))
+			tag = f.compileMultiLine(OPTION).ReplaceAllFunc(tag, func(tag []byte) []byte {
+				return f.compileMultiLine(SPACE+`*>\z`).ReplaceAll(tag, byteString(` selected="selected">`))
+			})
 		}
 	} else {
 		tag = f.compileMultiLine(SPACE+SELECTED).ReplaceAll(tag, byteString(``))
