@@ -1,13 +1,8 @@
-// Copyright 2015 The fillinform Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
-// https://github.com/google/re2/wiki/Syntax
-
 package fillinform
 
 import (
 	_ "fmt"
+	"io"
 	"log"
 	"regexp"
 	_ "time"
@@ -48,15 +43,11 @@ const (
 	MULTIPLE = `(?:` + Multiple + `(?:=(?:"` + Multiple + `"|'` + Multiple + `'|` + Multiple + `))?)`
 )
 
-type byteString []byte
-
 type FillinFormOptions struct {
 	FillPassword bool
 	IgnoreFields map[string]bool
 	IgnoreTypes  map[string]bool
 	Target       string
-	Escape       bool
-	DecodeEntity bool
 	Data         map[string]interface{}
 }
 
@@ -64,21 +55,39 @@ type Filler struct {
 	FillinFormOptions
 }
 
+type Writer struct {
+	filler *Filler
+	wr     io.Writer
+}
+
 func (f Filler) compileMultiLine(regstr string) *regexp.Regexp {
 	return regexp.MustCompile(`(?ms:` + regstr + `)`)
 }
 
-func Fill(body *[]byte, data map[string]interface{}, options map[string]interface{}) ([]byte, error) {
+func FillWriter(wr io.Writer, data map[string]interface{}, options map[string]interface{}) io.Writer {
+	filler := &Filler{FillinFormOptions{Data: data}}
+	return Writer{filler: filler, wr: wr}
+}
+func (w Writer) Write(p []byte) (int, error) {
+	filled, err := w.filler.fill(p)
+	if err != nil {
+		log.Println("fillinform error:", err)
+		return w.wr.Write(p)
+	}
+	return w.wr.Write(filled)
+}
+
+func Fill(body []byte, data map[string]interface{}, options map[string]interface{}) ([]byte, error) {
 
 	filler := &Filler{FillinFormOptions{Data: data}}
 
 	return filler.fill(body)
 }
 
-func (f Filler) fill(body *[]byte) ([]byte, error) {
+func (f Filler) fill(body []byte) ([]byte, error) {
 	log.Println("-- Start")
 
-	filled := f.compileMultiLine(FORM+`(.*?)`+EndFORM).ReplaceAllFunc(*body, f.fillForm)
+	filled := f.compileMultiLine(FORM+`(.*?)`+EndFORM).ReplaceAllFunc(body, f.fillForm)
 
 	log.Println("-- End")
 
@@ -97,7 +106,7 @@ func (f Filler) fillForm(formbody []byte) []byte {
 
 func (f Filler) unquote(tag []byte) []byte {
 	newTag := f.compileMultiLine(`['"](.*)['"]`).FindSubmatch(tag)
-	if cap(newTag) >= 2 {
+	if cap(newTag) == 2 {
 		return newTag[1]
 	}
 	return tag
@@ -175,18 +184,18 @@ func (f Filler) fillInput(tag []byte) []byte {
 
 		if paramValue == value {
 			if !f.compileMultiLine(CHECKED).Match(tag) {
-				tag = f.compileMultiLine(SPACE+`*(/?)>\z`).ReplaceAll(tag, byteString(` checked="checked"$1>`))
+				tag = f.compileMultiLine(SPACE+`*(/?)>\z`).ReplaceAll(tag, []byte(` checked="checked"$1>`))
 			}
 		} else {
-			tag = f.compileMultiLine(SPACE+CHECKED).ReplaceAll(tag, byteString(``))
+			tag = f.compileMultiLine(SPACE+CHECKED).ReplaceAll(tag, []byte(``))
 		}
 	} else { // text
 		escapedValue := f.escapeHTML(paramValue)
 		reg := f.compileMultiLine(Value + `=` + ATTR_VALUE)
 		if reg.Match(tag) {
-			tag = reg.ReplaceAll(tag, byteString(`value="`+escapedValue+`"`))
+			tag = reg.ReplaceAll(tag, []byte(`value="`+escapedValue+`"`))
 		} else {
-			tag = f.compileMultiLine(SPACE+`*(/?)>\z`).ReplaceAll(tag, byteString(`value="`+escapedValue+`"$1>`))
+			tag = f.compileMultiLine(SPACE+`*(/?)>\z`).ReplaceAll(tag, []byte(`value="`+escapedValue+`"$1>`))
 		}
 	}
 
@@ -202,11 +211,14 @@ func (f Filler) fillTextarea(tag []byte) []byte {
 	}
 	escapedValue := f.escapeHTML(paramValue)
 	log.Println("!!!", escapedValue)
-	// tag = f.compileMultiLine(`(`+TEXTAREA+`)(.*?)(`+EndTEXTAREA+`)`).ReplaceAll(tag, byteString(`$1`+escapedValue+`$3`))
-	matched := f.compileMultiLine(`(` + TEXTAREA + `).*?(` + EndTEXTAREA + `)`).FindSubmatch(tag)
-	if cap(matched) == 3 {
-		tag = byteString(string(matched[1]) + escapedValue + string(matched[2]))
-	}
+	replaced := `${1}` + escapedValue + `${3}`
+	log.Println(string(replaced))
+	tag = f.compileMultiLine(`(`+TEXTAREA+`)(.*?)(`+EndTEXTAREA+`)`).ReplaceAll(tag, []byte(replaced))
+	log.Println(string(tag))
+	// matched := f.compileMultiLine(`(` + TEXTAREA + `).*?(` + EndTEXTAREA + `)`).FindSubmatch(tag)
+	// if cap(matched) == 3 {
+	// 	tag = []byte(string(matched[1]) + escapedValue + string(matched[2]))
+	// }
 
 	return tag
 }
@@ -232,7 +244,7 @@ func (f Filler) fillOption(tag []byte, paramValue string) []byte {
 
 	value := f.getValue(tag)
 	if value == "" {
-		value = string(f.compileMultiLine(OPTION+`(.*?)`+EndOPTION).ReplaceAll(tag, byteString(`$1`)))
+		value = string(f.compileMultiLine(OPTION+`(.*?)`+EndOPTION).ReplaceAll(tag, []byte(`$1`)))
 		log.Println(paramValue)
 	}
 
@@ -240,11 +252,11 @@ func (f Filler) fillOption(tag []byte, paramValue string) []byte {
 		log.Println("!!!match:")
 		if !f.compileMultiLine(SELECTED).Match(tag) {
 			tag = f.compileMultiLine(OPTION).ReplaceAllFunc(tag, func(tag []byte) []byte {
-				return f.compileMultiLine(SPACE+`*>\z`).ReplaceAll(tag, byteString(` selected="selected">`))
+				return f.compileMultiLine(SPACE+`*>\z`).ReplaceAll(tag, []byte(` selected="selected">`))
 			})
 		}
 	} else {
-		tag = f.compileMultiLine(SPACE+SELECTED).ReplaceAll(tag, byteString(``))
+		tag = f.compileMultiLine(SPACE+SELECTED).ReplaceAll(tag, []byte(``))
 	}
 
 	return tag
