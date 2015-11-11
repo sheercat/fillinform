@@ -1,6 +1,8 @@
 # fillinform
 
-port from HTML::Fillinform::Lite[^1]
+port from HTML::Fillinform::Lite
+
+HTML::Fillinform::Lite is licensed to Goro Fuji.
 
 ## installation
 
@@ -10,32 +12,34 @@ port from HTML::Fillinform::Lite[^1]
 This product is alpha version yet.
 
 use html/template
-   import (
-      "github.com/sheercat/fillinform"
-      "html/template"
-   )
+
+    import (
+       "github.com/sheercat/fillinform"
+       "html/template"
+    )
 
    writer := fillinform.FillWriter(w, fdat, nil)
    html.ExecuteTemplate(writer, "layout", map[string]interface{}{"reqParams": reqParams})
 
 use pongo2
-   import (
-      "github.com/sheercat/fillinform"
-      "github.com/flosch/pongo2"
-   )
-   bytes, err := tpl.ExecuteBytes(pongo2.Context{})
-   if err != nil {
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-   }
-   bytes, err = fillinform.Fill(&bytes, formData.(map[string]interface{}), nil)
-   if err != nil {
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-   }
+
+    import (
+       "github.com/sheercat/fillinform"
+       "github.com/flosch/pongo2"
+    )
+    bytes, err := tpl.ExecuteBytes(pongo2.Context{})
+    if err != nil {
+       http.Error(w, err.Error(), http.StatusInternalServerError)
+    }
+    bytes, err = fillinform.Fill(&bytes, formData.(map[string]interface{}), nil)
+    if err != nil {
+       http.Error(w, err.Error(), http.StatusInternalServerError)
+    }
 
 
 ## License
 
-[^1]:HTML::Fillinform::Lite is licensed to Goro Fuji.
+
 
 fillinform licensed under the MIT
 
