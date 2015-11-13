@@ -37,7 +37,7 @@ use pongo2
        http.Error(w, err.Error(), http.StatusInternalServerError)
     }
     
-    bytes, err = fillinform.Fill(&bytes, formData.(map[string]interface{}), nil)
+    bytes, err = fillinform.Fill(bytes, formData.(map[string]interface{}), nil)
     if err != nil {
        http.Error(w, err.Error(), http.StatusInternalServerError)
     }

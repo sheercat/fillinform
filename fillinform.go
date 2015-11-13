@@ -3,7 +3,6 @@ package fillinform
 import (
 	_ "fmt"
 	"io"
-	"log"
 	"regexp"
 	_ "time"
 )
@@ -69,29 +68,18 @@ func FillWriter(wr io.Writer, data map[string]interface{}, options map[string]in
 	return Writer{filler: filler, wr: wr}
 }
 func (w Writer) Write(p []byte) (int, error) {
-	filled, err := w.filler.fill(p)
-	if err != nil {
-		log.Println("fillinform error:", err)
-		return w.wr.Write(p)
-	}
+	filled := w.filler.fill(p)
 	return w.wr.Write(filled)
 }
 
-func Fill(body []byte, data map[string]interface{}, options map[string]interface{}) ([]byte, error) {
-
+func Fill(body []byte, data map[string]interface{}, options map[string]interface{}) []byte {
 	filler := &Filler{FillinFormOptions{Data: data}}
 
 	return filler.fill(body)
 }
 
-func (f Filler) fill(body []byte) ([]byte, error) {
-	log.Println("-- Start")
-
-	filled := f.compileMultiLine(FORM+`(.*?)`+EndFORM).ReplaceAllFunc(body, f.fillForm)
-
-	log.Println("-- End")
-
-	return filled, nil
+func (f Filler) fill(body []byte) []byte {
+	return f.compileMultiLine(FORM+`(.*?)`+EndFORM).ReplaceAllFunc(body, f.fillForm)
 }
 
 func (f Filler) fillForm(formbody []byte) []byte {
@@ -115,7 +103,6 @@ func (f Filler) unquote(tag []byte) []byte {
 func (f Filler) getType(tag []byte) string {
 	itype := f.compileMultiLine(Type + `=(` + ATTR_VALUE + `)`).FindSubmatch(tag)
 	if cap(itype) == 2 {
-		log.Println(string(itype[1]))
 		return string(f.unquote(itype[1]))
 	}
 	return string(tag)
@@ -148,7 +135,6 @@ func (f Filler) escapeHTML(tag string) string {
 func (f Filler) getParam(name string) (string, bool) {
 	// ignore
 	if _, ok := f.IgnoreFields[name]; ok {
-		log.Println("!!! field:", name, "is ignore")
 		return "", false
 	}
 	if param, ok := f.Data[name]; ok {
@@ -161,8 +147,6 @@ func (f Filler) getParam(name string) (string, bool) {
 }
 
 func (f Filler) fillInput(tag []byte) []byte {
-	log.Println("INPUT" + string(tag))
-
 	inputType := f.getType(tag)
 	if inputType == "" {
 		inputType = "text"
@@ -170,7 +154,6 @@ func (f Filler) fillInput(tag []byte) []byte {
 
 	// ignore
 	if _, ok := f.IgnoreTypes[inputType]; ok {
-		log.Println("!!! type:", inputType, "is ignore")
 		return tag
 	}
 
@@ -195,7 +178,7 @@ func (f Filler) fillInput(tag []byte) []byte {
 		if reg.Match(tag) {
 			tag = reg.ReplaceAll(tag, []byte(`value="`+escapedValue+`"`))
 		} else {
-			tag = f.compileMultiLine(SPACE+`*(/?)>\z`).ReplaceAll(tag, []byte(`value="`+escapedValue+`"$1>`))
+			tag = f.compileMultiLine(SPACE+`*(/?)>\z`).ReplaceAll(tag, []byte(` value="`+escapedValue+`"$1>`))
 		}
 	}
 
@@ -203,18 +186,13 @@ func (f Filler) fillInput(tag []byte) []byte {
 }
 
 func (f Filler) fillTextarea(tag []byte) []byte {
-	log.Println("TEXTAREA" + string(tag))
-
 	paramValue, exists := f.getParam(f.getName(tag))
 	if !exists {
 		return tag
 	}
 	escapedValue := f.escapeHTML(paramValue)
-	log.Println("!!!", escapedValue)
 	replaced := `${1}` + escapedValue + `${3}`
-	log.Println(string(replaced))
 	tag = f.compileMultiLine(`(`+TEXTAREA+`)(.*?)(`+EndTEXTAREA+`)`).ReplaceAll(tag, []byte(replaced))
-	log.Println(string(tag))
 	// matched := f.compileMultiLine(`(` + TEXTAREA + `).*?(` + EndTEXTAREA + `)`).FindSubmatch(tag)
 	// if cap(matched) == 3 {
 	// 	tag = []byte(string(matched[1]) + escapedValue + string(matched[2]))
@@ -224,8 +202,6 @@ func (f Filler) fillTextarea(tag []byte) []byte {
 }
 
 func (f Filler) fillSelect(tag []byte) []byte {
-	log.Println("SELECT" + string(tag))
-
 	paramValue, exists := f.getParam(f.getName(tag))
 	if !exists {
 		return tag
@@ -239,17 +215,12 @@ func (f Filler) fillSelect(tag []byte) []byte {
 }
 
 func (f Filler) fillOption(tag []byte, paramValue string) []byte {
-	log.Println("OPTION" + string(tag))
-	log.Println("OPTION" + paramValue)
-
 	value := f.getValue(tag)
 	if value == "" {
 		value = string(f.compileMultiLine(OPTION+`(.*?)`+EndOPTION).ReplaceAll(tag, []byte(`$1`)))
-		log.Println(paramValue)
 	}
 
 	if paramValue == value {
-		log.Println("!!!match:")
 		if !f.compileMultiLine(SELECTED).Match(tag) {
 			tag = f.compileMultiLine(OPTION).ReplaceAllFunc(tag, func(tag []byte) []byte {
 				return f.compileMultiLine(SPACE+`*>\z`).ReplaceAll(tag, []byte(` selected="selected">`))
