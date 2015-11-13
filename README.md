@@ -2,7 +2,7 @@
 
 port from [HTML::FillinForm::Lite](https://github.com/gfx/p5-HTML-FillInForm-Lite)
 
-HTML::FillinForm::Lite is licensed to Goro Fuji.
+HTML::FillinForm::Lite is licensed to [Fuji, Goro (gfx)](https://github.com/gfx/).
 
 ## installation
 
