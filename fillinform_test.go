@@ -134,15 +134,205 @@ func BenchmarkEscapeHTML(b *testing.B) {
 	}
 }
 
-func TestFillinForm(t *testing.T) {
+func TestFillInput(t *testing.T) {
 	formData := map[string]interface{}{
 		"title":  "hogeTitle",
-		"chk":    "1",
+		"chk":    "chkval",
 		"rdo":    "rdoval2",
 		"select": "1",
 		"body":   "hogehoge",
 	}
-	html := `
+	filler := &Filler{FillinFormOptions{Data: formData}}
+
+	htmlstr := filler.fillInput([]byte(`<input type="text" name="title"/>`))
+	if string(htmlstr) != `<input type="text" name="title" value="hogeTitle"/>` {
+		t.Errorf("fillInput error: ", string(htmlstr))
+	}
+
+	htmlstr = filler.fillInput([]byte(`<input type="checkbox" name="chk" value="chkval" checked=checked/>`))
+	if string(htmlstr) != `<input type="checkbox" name="chk" value="chkval" checked=checked/>` {
+		t.Errorf("no affect error: ", string(htmlstr))
+	}
+
+	htmlstr = filler.fillInput([]byte(`<input type="radio" name="rdo" value="rdoval1" checked=checked/>`))
+	if string(htmlstr) != `<input type="radio" name="rdo" value="rdoval1"/>` {
+		t.Errorf("fillout error: ", string(htmlstr))
+	}
+
+	htmlstr = filler.fillInput([]byte(`<input type="radio" name="rdo" value="rdoval2" />`))
+	if string(htmlstr) != `<input type="radio" name="rdo" value="rdoval2" checked="checked"/>` {
+		t.Errorf("fillin error: ", string(htmlstr))
+	}
+
+	htmlstr = filler.fillInput([]byte(`<input type="submit" value="Send">`))
+	if string(htmlstr) != `<input type="submit" value="Send">` {
+		t.Errorf("no fill error: ", string(htmlstr))
+	}
+}
+
+func BenchmarkFillInput(b *testing.B) {
+	formData := map[string]interface{}{
+		"title":  "hogeTitle",
+		"chk":    "chkval",
+		"rdo":    "rdoval2",
+		"select": "1",
+		"body":   "hogehoge",
+	}
+	filler := &Filler{FillinFormOptions{Data: formData}}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		filler.fillInput([]byte(`<input type="radio" name="rdo" value="rdoval2" />`))
+	}
+}
+
+func TestFillTextarea(t *testing.T) {
+	formData := map[string]interface{}{
+		"title":  "hogeTitle",
+		"chk":    "chkval",
+		"rdo":    "rdoval2",
+		"select": "1",
+		"body":   "hogehoge",
+	}
+	filler := &Filler{FillinFormOptions{Data: formData}}
+
+	htmlstr := filler.fillTextarea([]byte(`<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge"></textarea>`))
+	if string(htmlstr) != `<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">hogehoge</textarea>` {
+		t.Errorf("fillTextarea error: ", string(htmlstr))
+	}
+	htmlstr = filler.fillTextarea([]byte(`<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">gakuburu</textarea>`))
+	if string(htmlstr) != `<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">hogehoge</textarea>` {
+		t.Errorf("fillTextarea error: ", string(htmlstr))
+	}
+	htmlstr = filler.fillTextarea([]byte(`<textarea id="body" name="bodyX" cols="80" rows="20" placeholder="hoge">gakuburu</textarea>`))
+	if string(htmlstr) != `<textarea id="body" name="bodyX" cols="80" rows="20" placeholder="hoge">gakuburu</textarea>` {
+		t.Errorf("no affect error: ", string(htmlstr))
+	}
+}
+
+func BenchmarkFillTextarea(b *testing.B) {
+	formData := map[string]interface{}{
+		"title":  "hogeTitle",
+		"chk":    "chkval",
+		"rdo":    "rdoval2",
+		"select": "1",
+		"body":   "hogehoge",
+	}
+	filler := &Filler{FillinFormOptions{Data: formData}}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		filler.fillTextarea([]byte(`<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge"></textarea>`))
+	}
+}
+
+func TestFillSelect(t *testing.T) {
+	formData := map[string]interface{}{
+		"title":  "hogeTitle",
+		"chk":    "chkval",
+		"rdo":    "rdoval2",
+		"select": "1",
+		"body":   "hogehoge",
+	}
+	filler := &Filler{FillinFormOptions{Data: formData}}
+
+	htmlstr := filler.fillSelect([]byte(`<select name="select">
+    <option value="1" selected="selected">1</option>
+    <option value="2">2</option>
+  </select>`))
+
+	if string(htmlstr) != `<select name="select">
+    <option value="1" selected="selected">1</option>
+    <option value="2">2</option>
+  </select>` {
+		t.Errorf("fillTextarea error: ", string(htmlstr))
+	}
+
+	htmlstr = filler.fillSelect([]byte(`<select name="select">
+    <option value="1">1</option>
+    <option value="2" selected="selected">2</option>
+  </select>`))
+	if string(htmlstr) != `<select name="select">
+    <option value="1" selected="selected">1</option>
+    <option value="2">2</option>
+  </select>` {
+		t.Errorf("fillTextarea error: ", string(htmlstr))
+	}
+
+	htmlstr = filler.fillSelect([]byte(`<select name="selectX">
+    <option value="1">1</option>
+    <option value="2" selected="selected">2</option>
+  </select>`))
+	if string(htmlstr) != `<select name="selectX">
+    <option value="1">1</option>
+    <option value="2" selected="selected">2</option>
+  </select>` {
+		t.Errorf("no affect error: ", string(htmlstr))
+	}
+}
+
+func BenchmarkFillSelect(b *testing.B) {
+	formData := map[string]interface{}{
+		"title":  "hogeTitle",
+		"chk":    "chkval",
+		"rdo":    "rdoval2",
+		"select": "1",
+		"body":   "hogehoge",
+	}
+	filler := &Filler{FillinFormOptions{Data: formData}}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		filler.fillSelect([]byte(`<select name="select">
+    <option value="1">1</option>
+    <option value="2" selected="selected">2</option>
+  </select>`))
+	}
+}
+
+func TestFillOption(t *testing.T) {
+	formData := map[string]interface{}{
+		"title":  "hogeTitle",
+		"chk":    "chkval",
+		"rdo":    "rdoval2",
+		"select": "1",
+		"body":   "hogehoge",
+	}
+	filler := &Filler{FillinFormOptions{Data: formData}}
+
+	htmlstr := filler.fillOption([]byte(`<option value="1">1</option>`), `1`)
+	if string(htmlstr) != `<option value="1" selected="selected">1</option>` {
+		t.Errorf("fillOption error: ", string(htmlstr))
+	}
+
+	htmlstr = filler.fillOption([]byte(`<option value="1">1</option>`), `2`)
+	if string(htmlstr) != `<option value="1">1</option>` {
+		t.Errorf("fillOption error: ", string(htmlstr))
+	}
+	htmlstr = filler.fillOption([]byte(`<option>1</option>`), `1`)
+	if string(htmlstr) != `<option selected="selected">1</option>` {
+		t.Errorf("fillOption error: ", string(htmlstr))
+	}
+
+}
+
+func BenchmarkFillOption(b *testing.B) {
+	formData := map[string]interface{}{
+		"title":  "hogeTitle",
+		"chk":    "chkval",
+		"rdo":    "rdoval2",
+		"select": "1",
+		"body":   "hogehoge",
+	}
+	filler := &Filler{FillinFormOptions{Data: formData}}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		filler.fillOption([]byte(`<option value="1">1</option>`), `1`)
+	}
+}
+
+var HTML = `
 <html><head><title>title of test</title></head><body>
 <form name="myform" action="./" method="POST">
   <input type="text" name="title"/>
@@ -159,7 +349,7 @@ func TestFillinForm(t *testing.T) {
 </body></html>
 `
 
-	success := `
+var HTMLSuccess = `
 <html><head><title>title of test</title></head><body>
 <form name="myform" action="./" method="POST">
   <input type="text" name="title" value="hogeTitle"/>
@@ -176,11 +366,20 @@ func TestFillinForm(t *testing.T) {
 </body></html>
 `
 
+func TestFillinForm(t *testing.T) {
+	formData := map[string]interface{}{
+		"title":  "hogeTitle",
+		"chk":    "1",
+		"rdo":    "rdoval2",
+		"select": "1",
+		"body":   "hogehoge",
+	}
+
 	filler := &Filler{FillinFormOptions{Data: formData}}
 
-	htmlstr := filler.fill([]byte(html))
+	htmlstr := filler.fill([]byte(HTML))
 
-	if string(htmlstr) != success {
+	if string(htmlstr) != HTMLSuccess {
 		t.Errorf("fillinform error: ")
 	}
 }
@@ -193,26 +392,11 @@ func BenchmarkFillinForm(b *testing.B) {
 		"select": "1",
 		"body":   "hogehoge",
 	}
-	html := `
-<html><head><title>title of test</title></head><body>
-<form name="myform" action="./" method="POST">
-  <input type="text" name="title"/>
-  <input type="checkbox" name="chk" value="chkval" checked=checked/>
-  <input type="radio" name="rdo" value="rdoval1" checked=checked/>
-  <input type="radio" name="rdo" value="rdoval2" />
-  <select name="select">
-    <option value="1">1</option>
-    <option value="2" selected=selected>2</option>
-  </select>
-  <textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">gakuburu</textarea>
-  <input type="submit" value="Send">
-</form>
-</body></html>
-`
+
 	filler := &Filler{FillinFormOptions{Data: formData}}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		filler.fill([]byte(html))
+		filler.fill([]byte(HTML))
 	}
 }
