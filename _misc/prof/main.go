@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -11,7 +10,7 @@ import (
 )
 
 func main() {
-	cpuprofile := "mycpu.prof"
+	cpuprofile := "fillinform.prof"
 	f, err := os.Create(cpuprofile)
 	if err != nil {
 		log.Fatal(err)
@@ -53,6 +52,5 @@ func main() {
 `
 	for {
 		filled := fillinform.Fill([]byte(html), formData, nil)
-		fmt.Println(filled)
 	}
 }
