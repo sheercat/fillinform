@@ -1,10 +1,8 @@
 package fillinform
 
 import (
-	_ "fmt"
 	"io"
 	"regexp"
-	_ "time"
 )
 
 const (
