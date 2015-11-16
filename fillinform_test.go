@@ -1,6 +1,9 @@
 package fillinform
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
 
 func TestUnquote(t *testing.T) {
 	filler := &Filler{}
@@ -23,6 +26,26 @@ func TestUnquote(t *testing.T) {
 	}
 	hoge = filler.unquote([]byte(`hoge`))
 	if string(hoge) != "hoge" {
+		t.Errorf("no unquote error $v", hoge)
+	}
+	hoge = filler.unquote([]byte(`"'hoge'"`))
+	if string(hoge) != "hoge" {
+		t.Errorf("no unquote error $v", hoge)
+	}
+	hoge = filler.unquote([]byte(`"'"hoge"'"`))
+	if string(hoge) != "hoge" {
+		t.Errorf("no unquote error $v", hoge)
+	}
+	hoge = filler.unquote([]byte(`'''hoge'''`))
+	if string(hoge) != "hoge" {
+		t.Errorf("no unquote error $v", hoge)
+	}
+	hoge = filler.unquote([]byte(`''"hoge''"`))
+	if string(hoge) != "hoge" {
+		t.Errorf("no unquote error $v", hoge)
+	}
+	hoge = filler.unquote([]byte(`"''"`))
+	if string(hoge) != "" {
 		t.Errorf("no unquote error $v", hoge)
 	}
 }
@@ -116,21 +139,22 @@ var TesteeArrayESCHTML = map[string]map[string]string{
 func TestEscapeHTML(t *testing.T) {
 	filler := &Filler{}
 	for key, mapval := range TesteeArrayESCHTML {
-		val := mapval["arg"]
-		res := mapval["return"]
+		val := []byte(mapval["arg"])
+		res := []byte(mapval["return"])
 		hoge := filler.escapeHTML(val)
-		if hoge != res {
-			t.Errorf("error in ", key)
+		if !bytes.Equal(hoge, res) {
+			t.Errorf("error in ", key, string(res))
 		}
 	}
 }
 
 func BenchmarkEscapeHTML(b *testing.B) {
 	str := `<input & type="hoge" & value="hoge" & name="hoge">`
+	ba := []byte(str)
 	filler := &Filler{}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		filler.escapeHTML(str)
+		filler.escapeHTML(ba)
 	}
 }
 
@@ -142,7 +166,7 @@ func TestFillInput(t *testing.T) {
 		"select": "1",
 		"body":   "hogehoge",
 	}
-	filler := &Filler{FillinFormOptions{Data: formData}}
+	filler := newFiller(formData)
 
 	htmlstr := filler.fillInput([]byte(`<input type="text" name="title"/>`))
 	if string(htmlstr) != `<input type="text" name="title" value="hogeTitle"/>` {
@@ -178,7 +202,7 @@ func BenchmarkFillInput(b *testing.B) {
 		"select": "1",
 		"body":   "hogehoge",
 	}
-	filler := &Filler{FillinFormOptions{Data: formData}}
+	filler := newFiller(formData)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -194,7 +218,7 @@ func TestFillTextarea(t *testing.T) {
 		"select": "1",
 		"body":   "hogehoge",
 	}
-	filler := &Filler{FillinFormOptions{Data: formData}}
+	filler := newFiller(formData)
 
 	htmlstr := filler.fillTextarea([]byte(`<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge"></textarea>`))
 	if string(htmlstr) != `<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">hogehoge</textarea>` {
@@ -218,7 +242,7 @@ func BenchmarkFillTextarea(b *testing.B) {
 		"select": "1",
 		"body":   "hogehoge",
 	}
-	filler := &Filler{FillinFormOptions{Data: formData}}
+	filler := newFiller(formData)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -234,7 +258,7 @@ func TestFillSelect(t *testing.T) {
 		"select": "1",
 		"body":   "hogehoge",
 	}
-	filler := &Filler{FillinFormOptions{Data: formData}}
+	filler := newFiller(formData)
 
 	htmlstr := filler.fillSelect([]byte(`<select name="select">
     <option value="1" selected="selected">1</option>
@@ -279,7 +303,7 @@ func BenchmarkFillSelect(b *testing.B) {
 		"select": "1",
 		"body":   "hogehoge",
 	}
-	filler := &Filler{FillinFormOptions{Data: formData}}
+	filler := newFiller(formData)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -298,18 +322,18 @@ func TestFillOption(t *testing.T) {
 		"select": "1",
 		"body":   "hogehoge",
 	}
-	filler := &Filler{FillinFormOptions{Data: formData}}
+	filler := newFiller(formData)
 
-	htmlstr := filler.fillOption([]byte(`<option value="1">1</option>`), `1`)
+	htmlstr := filler.fillOption([]byte(`<option value="1">1</option>`), []byte(`1`))
 	if string(htmlstr) != `<option value="1" selected="selected">1</option>` {
 		t.Errorf("fillOption error: ", string(htmlstr))
 	}
 
-	htmlstr = filler.fillOption([]byte(`<option value="1">1</option>`), `2`)
+	htmlstr = filler.fillOption([]byte(`<option value="1">1</option>`), []byte(`2`))
 	if string(htmlstr) != `<option value="1">1</option>` {
 		t.Errorf("fillOption error: ", string(htmlstr))
 	}
-	htmlstr = filler.fillOption([]byte(`<option>1</option>`), `1`)
+	htmlstr = filler.fillOption([]byte(`<option>1</option>`), []byte(`1`))
 	if string(htmlstr) != `<option selected="selected">1</option>` {
 		t.Errorf("fillOption error: ", string(htmlstr))
 	}
@@ -324,11 +348,11 @@ func BenchmarkFillOption(b *testing.B) {
 		"select": "1",
 		"body":   "hogehoge",
 	}
-	filler := &Filler{FillinFormOptions{Data: formData}}
+	filler := newFiller(formData)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		filler.fillOption([]byte(`<option value="1">1</option>`), `1`)
+		filler.fillOption([]byte(`<option value="1">1</option>`), []byte(`1`))
 	}
 }
 
@@ -375,12 +399,12 @@ func TestFillinForm(t *testing.T) {
 		"body":   "hogehoge",
 	}
 
-	filler := &Filler{FillinFormOptions{Data: formData}}
+	filler := newFiller(formData)
 
 	htmlstr := filler.fill([]byte(HTML))
 
 	if string(htmlstr) != HTMLSuccess {
-		t.Errorf("fillinform error: ")
+		t.Errorf("fillinform error: ", string(htmlstr))
 	}
 }
 
@@ -393,7 +417,7 @@ func BenchmarkFillinForm(b *testing.B) {
 		"body":   "hogehoge",
 	}
 
-	filler := &Filler{FillinFormOptions{Data: formData}}
+	filler := newFiller(formData)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

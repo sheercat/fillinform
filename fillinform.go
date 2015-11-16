@@ -1,6 +1,8 @@
 package fillinform
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"regexp"
 )
@@ -40,11 +42,64 @@ const (
 	MULTIPLE = `(?:` + Multiple + `(?:=(?:"` + Multiple + `"|'` + Multiple + `'|` + Multiple + `))?)`
 )
 
+var BACheckbox = []byte{'c', 'h', 'e', 'c', 'k', 'b', 'o', 'x'}
+var BARadio = []byte{'r', 'a', 'd', 'i', 'o'}
+var BAAmp = []byte{'&', 'a', 'm', 'p', ';'}
+var BALt = []byte{'&', 'l', 't', ';'}
+var BAGt = []byte{'&', 'g', 't', ';'}
+var BAQuot = []byte{'&', 'q', 'u', 'o', 't', ';'}
+
+var CompiledRegexpMap map[string]*regexp.Regexp
+
+func init() {
+	createRegexpMap()
+}
+
+func compileMultiLine(regstr string) *regexp.Regexp {
+	return regexp.MustCompile(`(?ms:` + regstr + `)`)
+}
+
+func createRegexpMap() {
+	CompiledRegexpMap = make(map[string]*regexp.Regexp)
+	CompiledRegexpMap["form"] = compileMultiLine(FORM + `.*?` + EndFORM)
+	CompiledRegexpMap["input"] = compileMultiLine(INPUT)
+	CompiledRegexpMap["select"] = compileMultiLine(SELECT + `.*?` + EndSELECT)
+	CompiledRegexpMap["textarea"] = compileMultiLine(TEXTAREA + `.*?` + EndTEXTAREA)
+	CompiledRegexpMap["type"] = compileMultiLine(Type + `=(` + ATTR_VALUE + `)`)
+	CompiledRegexpMap["value"] = compileMultiLine(Value + `=(` + ATTR_VALUE + `)`)
+	CompiledRegexpMap["name"] = compileMultiLine(Name + `=(` + ATTR_VALUE + `)`)
+	CompiledRegexpMap["checked"] = compileMultiLine(CHECKED)
+	CompiledRegexpMap["space+>"] = compileMultiLine(SPACE + `*(/?)>\z`)
+	CompiledRegexpMap["space+checked"] = compileMultiLine(SPACE + CHECKED)
+	CompiledRegexpMap["value(nocapture)"] = compileMultiLine(Value + `=` + ATTR_VALUE)
+	CompiledRegexpMap["textarea(3capture)"] = compileMultiLine(`(` + TEXTAREA + `)(.*?)(` + EndTEXTAREA + `)`)
+	CompiledRegexpMap["multiple"] = compileMultiLine(MULTIPLE)
+	CompiledRegexpMap["option"] = compileMultiLine(OPTION + `(.*?)` + EndOPTION)
+	CompiledRegexpMap["option(nocapture)"] = compileMultiLine(OPTION + `.*?` + EndOPTION)
+	CompiledRegexpMap["selected"] = compileMultiLine(SELECTED)
+	CompiledRegexpMap["start option"] = compileMultiLine(OPTION)
+	CompiledRegexpMap["tagend"] = compileMultiLine(SPACE + `*>\z`)
+	CompiledRegexpMap["space+selected"] = compileMultiLine(SPACE + SELECTED)
+
+	CompiledRegexpMap["&"] = regexp.MustCompile(`&`)
+	CompiledRegexpMap["<"] = regexp.MustCompile(`<`)
+	CompiledRegexpMap[">"] = regexp.MustCompile(`>`)
+	CompiledRegexpMap[`"`] = regexp.MustCompile(`"`)
+}
+
+func (f Filler) compiledRegexp(key string) *regexp.Regexp {
+	if reg, ok := CompiledRegexpMap[key]; ok {
+		return reg
+	}
+	panic(fmt.Sprintf("no such compiled exp for: %v\n", key))
+}
+
 type FillinFormOptions struct {
 	FillPassword bool
 	IgnoreFields map[string]bool
 	IgnoreTypes  map[string]bool
 	Target       string
+	Params       map[string][]byte
 	Data         map[string]interface{}
 }
 
@@ -57,12 +112,12 @@ type Writer struct {
 	wr     io.Writer
 }
 
-func (f Filler) compileMultiLine(regstr string) *regexp.Regexp {
-	return regexp.MustCompile(`(?ms:` + regstr + `)`)
+func newFiller(data map[string]interface{}) *Filler {
+	return &Filler{FillinFormOptions{Data: data, Params: make(map[string][]byte)}}
 }
 
 func FillWriter(wr io.Writer, data map[string]interface{}, options map[string]interface{}) io.Writer {
-	filler := &Filler{FillinFormOptions{Data: data}}
+	filler := newFiller(data)
 	return Writer{filler: filler, wr: wr}
 }
 func (w Writer) Write(p []byte) (int, error) {
@@ -71,87 +126,88 @@ func (w Writer) Write(p []byte) (int, error) {
 }
 
 func Fill(body []byte, data map[string]interface{}, options map[string]interface{}) []byte {
-	filler := &Filler{FillinFormOptions{Data: data}}
-
+	filler := newFiller(data)
 	return filler.fill(body)
 }
 
 func (f Filler) fill(body []byte) []byte {
-	return f.compileMultiLine(FORM+`(.*?)`+EndFORM).ReplaceAllFunc(body, f.fillForm)
+	return f.compiledRegexp("form").ReplaceAllFunc(body, f.fillForm)
 }
 
 func (f Filler) fillForm(formbody []byte) []byte {
-	replaced := f.compileMultiLine(INPUT).ReplaceAllFunc(formbody, f.fillInput)
-
-	replaced = f.compileMultiLine(SELECT+`(.*?)`+EndSELECT).ReplaceAllFunc(replaced, f.fillSelect)
-
-	replaced = f.compileMultiLine(TEXTAREA+`(.*?)`+EndTEXTAREA).ReplaceAllFunc(replaced, f.fillTextarea)
+	replaced := f.compiledRegexp("input").ReplaceAllFunc(formbody, f.fillInput)
+	replaced = f.compiledRegexp("select").ReplaceAllFunc(replaced, f.fillSelect)
+	replaced = f.compiledRegexp("textarea").ReplaceAllFunc(replaced, f.fillTextarea)
 
 	return replaced
 }
 
 func (f Filler) unquote(tag []byte) []byte {
-	newTag := f.compileMultiLine(`['"](.*)['"]`).FindSubmatch(tag)
-	if cap(newTag) == 2 {
-		return newTag[1]
-	}
-	return tag
+	return bytes.Trim(tag, `'"`)
 }
 
-func (f Filler) getType(tag []byte) string {
-	itype := f.compileMultiLine(Type + `=(` + ATTR_VALUE + `)`).FindSubmatch(tag)
+func (f Filler) getType(tag []byte) []byte {
+	itype := f.compiledRegexp("type").FindSubmatch(tag)
 	if cap(itype) == 2 {
-		return string(f.unquote(itype[1]))
+		return f.unquote(itype[1])
 	}
-	return string(tag)
+	return []byte{}
 }
 
-func (f Filler) getValue(tag []byte) string {
-	value := f.compileMultiLine(Value + `=(` + ATTR_VALUE + `)`).FindSubmatch(tag)
+func (f Filler) getValue(tag []byte) []byte {
+	value := f.compiledRegexp("value").FindSubmatch(tag)
 	if cap(value) == 2 {
-		return string(f.unquote(value[1]))
+		return f.unquote(value[1])
 	}
-	return ""
+	return []byte{}
 }
 
-func (f Filler) getName(tag []byte) string {
-	name := f.compileMultiLine(Name + `=(` + ATTR_VALUE + `)`).FindSubmatch(tag)
+func (f Filler) getName(tag []byte) []byte {
+	name := f.compiledRegexp("name").FindSubmatch(tag)
 	if cap(name) == 2 {
-		return string(f.unquote(name[1]))
+		return f.unquote(name[1])
 	}
-	return string(tag)
+	return []byte{}
 }
 
-func (f Filler) escapeHTML(tag string) string {
-	tag = regexp.MustCompile(`&`).ReplaceAllString(tag, `&amp;`)
-	tag = regexp.MustCompile(`<`).ReplaceAllString(tag, `&lt;`)
-	tag = regexp.MustCompile(`>`).ReplaceAllString(tag, `&gt;`)
-	tag = regexp.MustCompile(`"`).ReplaceAllString(tag, `&quot;`)
+func (f Filler) escapeHTML(tag []byte) []byte {
+	tag = f.compiledRegexp("&").ReplaceAll(tag, BAAmp)
+	tag = f.compiledRegexp("<").ReplaceAll(tag, BALt)
+	tag = f.compiledRegexp(">").ReplaceAll(tag, BAGt)
+	tag = f.compiledRegexp(`"`).ReplaceAll(tag, BAQuot)
+
 	return tag
 }
 
-func (f Filler) getParam(name string) (string, bool) {
+func (f Filler) getParam(name []byte) ([]byte, bool) {
 	// ignore
-	if _, ok := f.IgnoreFields[name]; ok {
-		return "", false
+	nameStr := string(name)
+	if _, ok := f.IgnoreFields[nameStr]; ok {
+		return []byte{}, false
 	}
-	if param, ok := f.Data[name]; ok {
+	if param, ok := f.Params[nameStr]; ok {
+		return param, true
+	}
+	if param, ok := f.Data[nameStr]; ok {
 		if casted, ok := param.(string); ok {
-			return casted, true
+			f.Params[nameStr] = []byte(casted)
+			return f.Params[nameStr], true
+		} else {
+			fmt.Printf("!!!cannot cast to []byte for %v\n", param)
 		}
 	}
 
-	return "", false
+	return []byte{}, false
 }
 
 func (f Filler) fillInput(tag []byte) []byte {
 	inputType := f.getType(tag)
-	if inputType == "" {
-		inputType = "text"
+	if bytes.Equal(inputType, []byte{}) {
+		inputType = []byte("text")
 	}
 
 	// ignore
-	if _, ok := f.IgnoreTypes[inputType]; ok {
+	if _, ok := f.IgnoreTypes[string(inputType)]; ok {
 		return tag
 	}
 
@@ -160,23 +216,23 @@ func (f Filler) fillInput(tag []byte) []byte {
 		return tag
 	}
 
-	if inputType == "checkbox" || inputType == "radio" {
+	if bytes.Equal(inputType, BACheckbox) || bytes.Equal(inputType, BARadio) {
 		value := f.getValue(tag)
 
-		if paramValue == value {
-			if !f.compileMultiLine(CHECKED).Match(tag) {
-				tag = f.compileMultiLine(SPACE+`*(/?)>\z`).ReplaceAll(tag, []byte(` checked="checked"$1>`))
+		if bytes.Equal(paramValue, value) {
+			if !f.compiledRegexp("checked").Match(tag) {
+				tag = f.compiledRegexp("space+>").ReplaceAll(tag, []byte(` checked="checked"$1>`))
 			}
 		} else {
-			tag = f.compileMultiLine(SPACE+CHECKED).ReplaceAll(tag, []byte(``))
+			tag = f.compiledRegexp("space+checked").ReplaceAll(tag, []byte(``))
 		}
 	} else { // text
 		escapedValue := f.escapeHTML(paramValue)
-		reg := f.compileMultiLine(Value + `=` + ATTR_VALUE)
+		reg := f.compiledRegexp("value(nocapture)")
 		if reg.Match(tag) {
-			tag = reg.ReplaceAll(tag, []byte(`value="`+escapedValue+`"`))
+			tag = reg.ReplaceAll(tag, append([]byte(`value="`), append(escapedValue, []byte(`"`)...)...))
 		} else {
-			tag = f.compileMultiLine(SPACE+`*(/?)>\z`).ReplaceAll(tag, []byte(` value="`+escapedValue+`"$1>`))
+			tag = f.compiledRegexp("space+>").ReplaceAll(tag, append([]byte(` value="`), append(escapedValue, []byte(`"$1>`)...)...))
 		}
 	}
 
@@ -189,12 +245,8 @@ func (f Filler) fillTextarea(tag []byte) []byte {
 		return tag
 	}
 	escapedValue := f.escapeHTML(paramValue)
-	replaced := `${1}` + escapedValue + `${3}`
-	tag = f.compileMultiLine(`(`+TEXTAREA+`)(.*?)(`+EndTEXTAREA+`)`).ReplaceAll(tag, []byte(replaced))
-	// matched := f.compileMultiLine(`(` + TEXTAREA + `).*?(` + EndTEXTAREA + `)`).FindSubmatch(tag)
-	// if cap(matched) == 3 {
-	// 	tag = []byte(string(matched[1]) + escapedValue + string(matched[2]))
-	// }
+	replaced := append([]byte(`${1}`), append(escapedValue, []byte(`${3}`)...)...)
+	tag = f.compiledRegexp("textarea(3capture)").ReplaceAll(tag, replaced)
 
 	return tag
 }
@@ -205,27 +257,27 @@ func (f Filler) fillSelect(tag []byte) []byte {
 		return tag
 	}
 
-	if f.compileMultiLine(MULTIPLE).Match(tag) {
+	if f.compiledRegexp("multiple").Match(tag) {
 		return tag
 	}
 
-	return f.compileMultiLine(OPTION+`.*?`+EndOPTION).ReplaceAllFunc(tag, func(tag []byte) []byte { return f.fillOption(tag, paramValue) })
+	return f.compiledRegexp("option(nocapture)").ReplaceAllFunc(tag, func(tag []byte) []byte { return f.fillOption(tag, paramValue) })
 }
 
-func (f Filler) fillOption(tag []byte, paramValue string) []byte {
+func (f Filler) fillOption(tag, paramValue []byte) []byte {
 	value := f.getValue(tag)
-	if value == "" {
-		value = string(f.compileMultiLine(OPTION+`(.*?)`+EndOPTION).ReplaceAll(tag, []byte(`$1`)))
+	if bytes.Equal(value, []byte{}) {
+		value = f.compiledRegexp("option").ReplaceAll(tag, []byte(`$1`))
 	}
 
-	if paramValue == value {
-		if !f.compileMultiLine(SELECTED).Match(tag) {
-			tag = f.compileMultiLine(OPTION).ReplaceAllFunc(tag, func(tag []byte) []byte {
-				return f.compileMultiLine(SPACE+`*>\z`).ReplaceAll(tag, []byte(` selected="selected">`))
+	if bytes.Equal(paramValue, value) {
+		if !f.compiledRegexp("selected").Match(tag) {
+			tag = f.compiledRegexp("start option").ReplaceAllFunc(tag, func(tag []byte) []byte {
+				return f.compiledRegexp("tagend").ReplaceAll(tag, []byte(` selected="selected">`))
 			})
 		}
 	} else {
-		tag = f.compileMultiLine(SPACE+SELECTED).ReplaceAll(tag, []byte(``))
+		tag = f.compiledRegexp("space+selected").ReplaceAll(tag, []byte(``))
 	}
 
 	return tag
