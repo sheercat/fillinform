@@ -8,38 +8,38 @@ import (
 )
 
 const (
-	Form     = `[fF][oO][rR][mM]`
-	Input    = `[iI][nN][pP][uU][tT]`
-	Select   = `[sS][eE][lL][eE][cC][tT]`
-	Option   = `[oO][pP][tT][iI][oO][nN]`
-	Textarea = `[tT][eE][xX][tT][aA][rR][eE][aA]`
-	Checked  = `[cC][hH][eE][cC][kK][eE][dD]`
-	Selected = `[sS][eE][lL][eE][cC][tT][eE][dD]`
-	Multiple = `[mM][uU][lL][tT][iI][pP][lL][eE]`
-	Id       = `[iI][dD]`
-	Type     = `[tT][yY][pP][eE]`
-	Name     = `[nN][aA][mM][eE]`
-	Value    = `[vV][aA][lL][uU][eE]`
+	_Form     = `[fF][oO][rR][mM]`
+	_Input    = `[iI][nN][pP][uU][tT]`
+	_Select   = `[sS][eE][lL][eE][cC][tT]`
+	_Option   = `[oO][pP][tT][iI][oO][nN]`
+	_Textarea = `[tT][eE][xX][tT][aA][rR][eE][aA]`
+	_Checked  = `[cC][hH][eE][cC][kK][eE][dD]`
+	_Selected = `[sS][eE][lL][eE][cC][tT][eE][dD]`
+	_Multiple = `[mM][uU][lL][tT][iI][pP][lL][eE]`
+	_Id       = `[iI][dD]`
+	_Type     = `[tT][yY][pP][eE]`
+	_Name     = `[nN][aA][mM][eE]`
+	_Value    = `[vV][aA][lL][uU][eE]`
 
-	SPACE      = `\s`
-	ATTR_NAME  = `[\w\-]+`
-	ATTR_VALUE = `(?:"[^"]*"|'[^']*'|[^'"/>\s]+|[\w\-]+)`
-	ATTR       = `(?:` + SPACE + `+(?:` + ATTR_NAME + `(?:=` + ATTR_VALUE + `)?))`
+	Space     = `\s`
+	AttrName  = `[\w\-]+`
+	AttrValue = `(?:"[^"]*"|'[^']*'|[^'"/>\s]+|[\w\-]+)`
+	Attr      = `(?:` + Space + `+(?:` + AttrName + `(?:=` + AttrValue + `)?))`
 
-	FORM     = `(?:<` + Form + ATTR + `+` + SPACE + `*>)`
-	INPUT    = `(?:<` + Input + ATTR + `+` + SPACE + `*/?>)`
-	SELECT   = `(?:<` + Select + ATTR + `+` + SPACE + `*>)`
-	OPTION   = `(?:<` + Option + ATTR + `*` + SPACE + `*>)`
-	TEXTAREA = `(?:<` + Textarea + ATTR + `+` + SPACE + `*>)`
+	StartForm     = `(?:<` + _Form + Attr + `+` + Space + `*>)`
+	Input         = `(?:<` + _Input + Attr + `+` + Space + `*/?>)`
+	StartSelect   = `(?:<` + _Select + Attr + `+` + Space + `*>)`
+	StartOption   = `(?:<` + _Option + Attr + `*` + Space + `*>)`
+	StartTextarea = `(?:<` + _Textarea + Attr + `+` + Space + `*>)`
 
-	EndFORM     = `(?:</` + Form + `>)`
-	EndSELECT   = `(?:</` + Select + `>)`
-	EndOPTION   = `(?:</` + Option + `>)`
-	EndTEXTAREA = `(?:</` + Textarea + `>)`
+	EndForm     = `(?:</` + _Form + `>)`
+	EndSelect   = `(?:</` + _Select + `>)`
+	EndOption   = `(?:</` + _Option + `>)`
+	EndTextarea = `(?:</` + _Textarea + `>)`
 
-	CHECKED  = `(?:` + Checked + `(?:=(?:"` + Checked + `"|'` + Checked + `'|` + Checked + `))?)`
-	SELECTED = `(?:` + Selected + `(?:=(?:"` + Selected + `"|'` + Selected + `'|` + Selected + `))?)`
-	MULTIPLE = `(?:` + Multiple + `(?:=(?:"` + Multiple + `"|'` + Multiple + `'|` + Multiple + `))?)`
+	Checked  = `(?:` + _Checked + `(?:=(?:"` + _Checked + `"|'` + _Checked + `'|` + _Checked + `))?)`
+	Selected = `(?:` + _Selected + `(?:=(?:"` + _Selected + `"|'` + _Selected + `'|` + _Selected + `))?)`
+	Multiple = `(?:` + _Multiple + `(?:=(?:"` + _Multiple + `"|'` + _Multiple + `'|` + _Multiple + `))?)`
 )
 
 var BACheckbox = []byte{'c', 'h', 'e', 'c', 'k', 'b', 'o', 'x'}
@@ -61,30 +61,27 @@ func compileMultiLine(regstr string) *regexp.Regexp {
 
 func createRegexpMap() {
 	CompiledRegexpMap = make(map[string]*regexp.Regexp)
-	CompiledRegexpMap["form"] = compileMultiLine(FORM + `.*?` + EndFORM)
-	CompiledRegexpMap["input"] = compileMultiLine(INPUT)
-	CompiledRegexpMap["select"] = compileMultiLine(SELECT + `.*?` + EndSELECT)
-	CompiledRegexpMap["textarea"] = compileMultiLine(TEXTAREA + `.*?` + EndTEXTAREA)
-	CompiledRegexpMap["type"] = compileMultiLine(Type + `=(` + ATTR_VALUE + `)`)
-	CompiledRegexpMap["value"] = compileMultiLine(Value + `=(` + ATTR_VALUE + `)`)
-	CompiledRegexpMap["name"] = compileMultiLine(Name + `=(` + ATTR_VALUE + `)`)
-	CompiledRegexpMap["checked"] = compileMultiLine(CHECKED)
-	CompiledRegexpMap["space+>"] = compileMultiLine(SPACE + `*(/?)>\z`)
-	CompiledRegexpMap["space+checked"] = compileMultiLine(SPACE + CHECKED)
-	CompiledRegexpMap["value(nocapture)"] = compileMultiLine(Value + `=` + ATTR_VALUE)
-	CompiledRegexpMap["textarea(3capture)"] = compileMultiLine(`(` + TEXTAREA + `)(.*?)(` + EndTEXTAREA + `)`)
-	CompiledRegexpMap["multiple"] = compileMultiLine(MULTIPLE)
-	CompiledRegexpMap["option"] = compileMultiLine(OPTION + `(.*?)` + EndOPTION)
-	CompiledRegexpMap["option(nocapture)"] = compileMultiLine(OPTION + `.*?` + EndOPTION)
-	CompiledRegexpMap["selected"] = compileMultiLine(SELECTED)
-	CompiledRegexpMap["start option"] = compileMultiLine(OPTION)
-	CompiledRegexpMap["tagend"] = compileMultiLine(SPACE + `*>\z`)
-	CompiledRegexpMap["space+selected"] = compileMultiLine(SPACE + SELECTED)
+	CompiledRegexpMap["form"] = compileMultiLine(StartForm + `.*?` + EndForm)
+	CompiledRegexpMap["input"] = compileMultiLine(Input)
+	CompiledRegexpMap["select"] = compileMultiLine(StartSelect + `.*?` + EndSelect)
+	CompiledRegexpMap["textarea"] = compileMultiLine(StartTextarea + `.*?` + EndTextarea)
 
-	CompiledRegexpMap["&"] = regexp.MustCompile(`&`)
-	CompiledRegexpMap["<"] = regexp.MustCompile(`<`)
-	CompiledRegexpMap[">"] = regexp.MustCompile(`>`)
-	CompiledRegexpMap[`"`] = regexp.MustCompile(`"`)
+	CompiledRegexpMap["type"] = compileMultiLine(_Type + `=(` + AttrValue + `)`)
+	CompiledRegexpMap["value"] = compileMultiLine(_Value + `=(` + AttrValue + `)`)
+	CompiledRegexpMap["name"] = compileMultiLine(_Name + `=(` + AttrValue + `)`)
+
+	CompiledRegexpMap["checked"] = compileMultiLine(Checked)
+	CompiledRegexpMap["space+>"] = compileMultiLine(Space + `*(/?)>\z`)
+	CompiledRegexpMap["space+checked"] = compileMultiLine(Space + Checked)
+	CompiledRegexpMap["value(nocapture)"] = compileMultiLine(_Value + `=` + AttrValue)
+	CompiledRegexpMap["textarea(3capture)"] = compileMultiLine(`(` + StartTextarea + `)(.*?)(` + EndTextarea + `)`)
+	CompiledRegexpMap["multiple"] = compileMultiLine(Multiple)
+	CompiledRegexpMap["option"] = compileMultiLine(StartOption + `(.*?)` + EndOption)
+	CompiledRegexpMap["option(nocapture)"] = compileMultiLine(StartOption + `.*?` + EndOption)
+	CompiledRegexpMap["selected"] = compileMultiLine(Selected)
+	CompiledRegexpMap["start option"] = compileMultiLine(StartOption)
+	CompiledRegexpMap["tagend"] = compileMultiLine(Space + `*>\z`)
+	CompiledRegexpMap["space+selected"] = compileMultiLine(Space + Selected)
 }
 
 func (f Filler) compiledRegexp(key string) *regexp.Regexp {
@@ -171,12 +168,7 @@ func (f Filler) getName(tag []byte) []byte {
 }
 
 func (f Filler) escapeHTML(tag []byte) []byte {
-	tag = f.compiledRegexp("&").ReplaceAll(tag, BAAmp)
-	tag = f.compiledRegexp("<").ReplaceAll(tag, BALt)
-	tag = f.compiledRegexp(">").ReplaceAll(tag, BAGt)
-	tag = f.compiledRegexp(`"`).ReplaceAll(tag, BAQuot)
-
-	return tag
+	return bytes.Replace(bytes.Replace(bytes.Replace(bytes.Replace(tag, []byte{'&'}, BAAmp, -1), []byte{'<'}, BALt, -1), []byte{'>'}, BAGt, -1), []byte{'"'}, BAQuot, -1)
 }
 
 func (f Filler) getParam(name []byte) ([]byte, bool) {

@@ -79,7 +79,7 @@ func TestGetType(t *testing.T) {
 }
 
 func BenchmarkGetType(b *testing.B) {
-	str := `<input type="hoge" value="hoge">`
+	str := `<input type="hoge" value="hoge" name="hoge">`
 	bstr := []byte(str)
 	filler := &Filler{}
 	b.ResetTimer()
@@ -99,7 +99,7 @@ func TestGetValue(t *testing.T) {
 }
 
 func BenchmarkGetValue(b *testing.B) {
-	str := `<input type="hoge" value="hoge">`
+	str := `<input value="hoge" type="hoge" name="hoge">`
 	bstr := []byte(str)
 	filler := &Filler{}
 	b.ResetTimer()
@@ -119,7 +119,7 @@ func TestGetName(t *testing.T) {
 }
 
 func BenchmarkGetName(b *testing.B) {
-	str := `<input type="hoge" value="hoge" name="hoge">`
+	str := `<input name="hoge" type="hoge" value="hoge">`
 	bstr := []byte(str)
 	filler := &Filler{}
 	b.ResetTimer()
@@ -133,7 +133,7 @@ var TesteeArrayESCHTML = map[string]map[string]string{
 	`lt`:    {"arg": `Hi, < is less than`, "return": `Hi, &lt; is less than`},
 	`gt`:    {"arg": `Hi, > is greater than`, "return": `Hi, &gt; is greater than`},
 	`quot`:  {"arg": `Hi, " is quotation`, "return": `Hi, &quot; is quotation`},
-	`mixed`: {"arg": `html special char is <, >, &, and ".`, "return": `html special char is &lt;, &gt;, &amp;, and &quot;.`},
+	`mixed`: {"arg": `html special char is <, >, &, and """.`, "return": `html special char is &lt;, &gt;, &amp;, and &quot;&quot;&quot;.`},
 }
 
 func TestEscapeHTML(t *testing.T) {
@@ -160,16 +160,14 @@ func BenchmarkEscapeHTML(b *testing.B) {
 
 func TestFillInput(t *testing.T) {
 	formData := map[string]interface{}{
-		"title":  "hogeTitle",
-		"chk":    "chkval",
-		"rdo":    "rdoval2",
-		"select": "1",
-		"body":   "hogehoge",
+		"title": `hoge & Hoge <"Title">`,
+		"chk":   "chkval",
+		"rdo":   "rdoval2",
 	}
 	filler := newFiller(formData)
 
 	htmlstr := filler.fillInput([]byte(`<input type="text" name="title"/>`))
-	if string(htmlstr) != `<input type="text" name="title" value="hogeTitle"/>` {
+	if string(htmlstr) != `<input type="text" name="title" value="hoge &amp; Hoge &lt;&quot;Title&quot;&gt;"/>` {
 		t.Errorf("fillInput error: ", string(htmlstr))
 	}
 
@@ -196,11 +194,9 @@ func TestFillInput(t *testing.T) {
 
 func BenchmarkFillInput(b *testing.B) {
 	formData := map[string]interface{}{
-		"title":  "hogeTitle",
-		"chk":    "chkval",
-		"rdo":    "rdoval2",
-		"select": "1",
-		"body":   "hogehoge",
+		"title": `hoge & Hoge <"Title">`,
+		"chk":   "chkval",
+		"rdo":   "rdoval2",
 	}
 	filler := newFiller(formData)
 
@@ -212,20 +208,16 @@ func BenchmarkFillInput(b *testing.B) {
 
 func TestFillTextarea(t *testing.T) {
 	formData := map[string]interface{}{
-		"title":  "hogeTitle",
-		"chk":    "chkval",
-		"rdo":    "rdoval2",
-		"select": "1",
-		"body":   "hogehoge",
+		"body": "hoge & hoge <hoge@hogehoge>",
 	}
 	filler := newFiller(formData)
 
 	htmlstr := filler.fillTextarea([]byte(`<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge"></textarea>`))
-	if string(htmlstr) != `<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">hogehoge</textarea>` {
+	if string(htmlstr) != `<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">hoge &amp; hoge &lt;hoge@hogehoge&gt;</textarea>` {
 		t.Errorf("fillTextarea error: ", string(htmlstr))
 	}
 	htmlstr = filler.fillTextarea([]byte(`<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">gakuburu</textarea>`))
-	if string(htmlstr) != `<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">hogehoge</textarea>` {
+	if string(htmlstr) != `<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">hoge &amp; hoge &lt;hoge@hogehoge&gt;</textarea>` {
 		t.Errorf("fillTextarea error: ", string(htmlstr))
 	}
 	htmlstr = filler.fillTextarea([]byte(`<textarea id="body" name="bodyX" cols="80" rows="20" placeholder="hoge">gakuburu</textarea>`))
@@ -236,11 +228,7 @@ func TestFillTextarea(t *testing.T) {
 
 func BenchmarkFillTextarea(b *testing.B) {
 	formData := map[string]interface{}{
-		"title":  "hogeTitle",
-		"chk":    "chkval",
-		"rdo":    "rdoval2",
-		"select": "1",
-		"body":   "hogehoge",
+		"body": "hoge & hoge <hoge@hogehoge>",
 	}
 	filler := newFiller(formData)
 
@@ -252,22 +240,26 @@ func BenchmarkFillTextarea(b *testing.B) {
 
 func TestFillSelect(t *testing.T) {
 	formData := map[string]interface{}{
-		"title":  "hogeTitle",
-		"chk":    "chkval",
-		"rdo":    "rdoval2",
 		"select": "1",
-		"body":   "hogehoge",
 	}
 	filler := newFiller(formData)
 
 	htmlstr := filler.fillSelect([]byte(`<select name="select">
     <option value="1" selected="selected">1</option>
     <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
   </select>`))
 
 	if string(htmlstr) != `<select name="select">
     <option value="1" selected="selected">1</option>
     <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
   </select>` {
 		t.Errorf("fillTextarea error: ", string(htmlstr))
 	}
@@ -275,10 +267,18 @@ func TestFillSelect(t *testing.T) {
 	htmlstr = filler.fillSelect([]byte(`<select name="select">
     <option value="1">1</option>
     <option value="2" selected="selected">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
   </select>`))
 	if string(htmlstr) != `<select name="select">
     <option value="1" selected="selected">1</option>
     <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
   </select>` {
 		t.Errorf("fillTextarea error: ", string(htmlstr))
 	}
@@ -286,10 +286,18 @@ func TestFillSelect(t *testing.T) {
 	htmlstr = filler.fillSelect([]byte(`<select name="selectX">
     <option value="1">1</option>
     <option value="2" selected="selected">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
   </select>`))
 	if string(htmlstr) != `<select name="selectX">
     <option value="1">1</option>
     <option value="2" selected="selected">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
   </select>` {
 		t.Errorf("no affect error: ", string(htmlstr))
 	}
@@ -297,11 +305,7 @@ func TestFillSelect(t *testing.T) {
 
 func BenchmarkFillSelect(b *testing.B) {
 	formData := map[string]interface{}{
-		"title":  "hogeTitle",
-		"chk":    "chkval",
-		"rdo":    "rdoval2",
 		"select": "1",
-		"body":   "hogehoge",
 	}
 	filler := newFiller(formData)
 
@@ -310,6 +314,10 @@ func BenchmarkFillSelect(b *testing.B) {
 		filler.fillSelect([]byte(`<select name="select">
     <option value="1">1</option>
     <option value="2" selected="selected">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
   </select>`))
 	}
 }
