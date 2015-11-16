@@ -51,6 +51,6 @@ func main() {
 </body></html>
 `
 	for {
-		filled := fillinform.Fill([]byte(html), formData, nil)
+		fillinform.Fill([]byte(html), formData, nil)
 	}
 }
