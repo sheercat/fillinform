@@ -62,10 +62,13 @@ func compileMultiLine(regstr string) *regexp.Regexp {
 func createRegexpMap() {
 	CompiledRegexpMap = make(map[string]*regexp.Regexp)
 	CompiledRegexpMap["form"] = compileMultiLine(StartForm + `.*?` + EndForm)
+	CompiledRegexpMap["start form"] = compileMultiLine(`(` + StartForm + `)`)
+
 	CompiledRegexpMap["input"] = compileMultiLine(Input)
 	CompiledRegexpMap["select"] = compileMultiLine(StartSelect + `.*?` + EndSelect)
 	CompiledRegexpMap["textarea"] = compileMultiLine(StartTextarea + `.*?` + EndTextarea)
 
+	CompiledRegexpMap["id"] = compileMultiLine(_Id + `=(` + AttrValue + `)`)
 	CompiledRegexpMap["type"] = compileMultiLine(_Type + `=(` + AttrValue + `)`)
 	CompiledRegexpMap["value"] = compileMultiLine(_Value + `=(` + AttrValue + `)`)
 	CompiledRegexpMap["name"] = compileMultiLine(_Name + `=(` + AttrValue + `)`)
@@ -91,16 +94,18 @@ func (f Filler) compiledRegexp(key string) *regexp.Regexp {
 	panic(fmt.Sprintf("no such compiled exp for: %v\n", key))
 }
 
+// Options for fillin
+// Set { "FillPassword": true } if fillin value to field type="password".
+// Target is id for form tag.
 type FillinFormOptions struct {
-	FillPassword bool
 	IgnoreFields map[string]bool
 	IgnoreTypes  map[string]bool
 	Target       string
-	Params       map[string][]byte
-	Data         map[string]interface{}
 }
 
 type Filler struct {
+	Params map[string][]byte
+	Data   map[string]interface{}
 	FillinFormOptions
 }
 
@@ -109,12 +114,50 @@ type Writer struct {
 	wr     io.Writer
 }
 
-func newFiller(data map[string]interface{}) *Filler {
-	return &Filler{FillinFormOptions{Data: data, Params: make(map[string][]byte)}}
+func setOptions(options map[string]interface{}) *FillinFormOptions {
+	var ffo FillinFormOptions
+	// default set
+	ffo.IgnoreFields = make(map[string]bool)
+	ffo.IgnoreTypes = make(map[string]bool)
+	ffo.IgnoreTypes["password"] = true
+	ffo.Target = ""
+
+	for key, val := range options {
+		switch key {
+		case "IgnoreFields":
+			if valArray, ok := val.([]string); ok {
+				for _, val := range valArray {
+					ffo.IgnoreFields[val] = true
+				}
+			}
+		case "IgnoreTypes":
+			if valArray, ok := val.([]string); ok {
+				for _, val := range valArray {
+					ffo.IgnoreTypes[val] = true
+				}
+			}
+		case "FillPassword":
+			if valBool, ok := val.(bool); ok {
+				ffo.IgnoreTypes["password"] = !valBool
+			}
+		case "Target":
+			if valStr, ok := val.(string); ok {
+				ffo.Target = valStr
+			}
+		}
+	}
+
+	return &ffo
 }
 
+func newFiller(data map[string]interface{}, options map[string]interface{}) *Filler {
+	ffo := setOptions(options)
+	return &Filler{Data: data, Params: make(map[string][]byte), FillinFormOptions: *ffo}
+}
+
+// return writer implement interface io.Writer.
 func FillWriter(wr io.Writer, data map[string]interface{}, options map[string]interface{}) io.Writer {
-	filler := newFiller(data)
+	filler := newFiller(data, options)
 	return Writer{filler: filler, wr: wr}
 }
 func (w Writer) Write(p []byte) (int, error) {
@@ -122,8 +165,9 @@ func (w Writer) Write(p []byte) (int, error) {
 	return w.wr.Write(filled)
 }
 
+// return filled formed html.
 func Fill(body []byte, data map[string]interface{}, options map[string]interface{}) []byte {
-	filler := newFiller(data)
+	filler := newFiller(data, options)
 	return filler.fill(body)
 }
 
@@ -132,6 +176,17 @@ func (f Filler) fill(body []byte) []byte {
 }
 
 func (f Filler) fillForm(formbody []byte) []byte {
+	// process only form with target id
+	if f.FillinFormOptions.Target != "" {
+		formTag := f.compiledRegexp("start form").FindSubmatch(formbody)
+		if cap(formTag) == 2 {
+			if id := f.getId(formTag[1]); !bytes.Equal(id, []byte{}) {
+				if string(id) != f.FillinFormOptions.Target {
+					return formbody
+				}
+			}
+		}
+	}
 	replaced := f.compiledRegexp("input").ReplaceAllFunc(formbody, f.fillInput)
 	replaced = f.compiledRegexp("select").ReplaceAllFunc(replaced, f.fillSelect)
 	replaced = f.compiledRegexp("textarea").ReplaceAllFunc(replaced, f.fillTextarea)
@@ -141,6 +196,14 @@ func (f Filler) fillForm(formbody []byte) []byte {
 
 func (f Filler) unquote(tag []byte) []byte {
 	return bytes.Trim(tag, `'"`)
+}
+
+func (f Filler) getId(tag []byte) []byte {
+	id := f.compiledRegexp("id").FindSubmatch(tag)
+	if cap(id) == 2 {
+		return f.unquote(id[1])
+	}
+	return []byte{}
 }
 
 func (f Filler) getType(tag []byte) []byte {
@@ -198,8 +261,8 @@ func (f Filler) fillInput(tag []byte) []byte {
 		inputType = []byte("text")
 	}
 
-	// ignore
-	if _, ok := f.IgnoreTypes[string(inputType)]; ok {
+	// ignore types (password is default true (not fillin))
+	if flg, ok := f.IgnoreTypes[string(inputType)]; ok && flg {
 		return tag
 	}
 

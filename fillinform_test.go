@@ -164,7 +164,7 @@ func TestFillInput(t *testing.T) {
 		"chk":   "chkval",
 		"rdo":   "rdoval2",
 	}
-	filler := newFiller(formData)
+	filler := newFiller(formData, nil)
 
 	htmlstr := filler.fillInput([]byte(`<input type="text" name="title"/>`))
 	if string(htmlstr) != `<input type="text" name="title" value="hoge &amp; Hoge &lt;&quot;Title&quot;&gt;"/>` {
@@ -198,7 +198,7 @@ func BenchmarkFillInput(b *testing.B) {
 		"chk":   "chkval",
 		"rdo":   "rdoval2",
 	}
-	filler := newFiller(formData)
+	filler := newFiller(formData, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -210,7 +210,7 @@ func TestFillTextarea(t *testing.T) {
 	formData := map[string]interface{}{
 		"body": "hoge & hoge <hoge@hogehoge>",
 	}
-	filler := newFiller(formData)
+	filler := newFiller(formData, nil)
 
 	htmlstr := filler.fillTextarea([]byte(`<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge"></textarea>`))
 	if string(htmlstr) != `<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">hoge &amp; hoge &lt;hoge@hogehoge&gt;</textarea>` {
@@ -230,7 +230,7 @@ func BenchmarkFillTextarea(b *testing.B) {
 	formData := map[string]interface{}{
 		"body": "hoge & hoge <hoge@hogehoge>",
 	}
-	filler := newFiller(formData)
+	filler := newFiller(formData, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -242,7 +242,7 @@ func TestFillSelect(t *testing.T) {
 	formData := map[string]interface{}{
 		"select": "1",
 	}
-	filler := newFiller(formData)
+	filler := newFiller(formData, nil)
 
 	htmlstr := filler.fillSelect([]byte(`<select name="select">
     <option value="1" selected="selected">1</option>
@@ -307,7 +307,7 @@ func BenchmarkFillSelect(b *testing.B) {
 	formData := map[string]interface{}{
 		"select": "1",
 	}
-	filler := newFiller(formData)
+	filler := newFiller(formData, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -330,7 +330,7 @@ func TestFillOption(t *testing.T) {
 		"select": "1",
 		"body":   "hogehoge",
 	}
-	filler := newFiller(formData)
+	filler := newFiller(formData, nil)
 
 	htmlstr := filler.fillOption([]byte(`<option value="1">1</option>`), []byte(`1`))
 	if string(htmlstr) != `<option value="1" selected="selected">1</option>` {
@@ -356,7 +356,7 @@ func BenchmarkFillOption(b *testing.B) {
 		"select": "1",
 		"body":   "hogehoge",
 	}
-	filler := newFiller(formData)
+	filler := newFiller(formData, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -407,7 +407,7 @@ func TestFillinForm(t *testing.T) {
 		"body":   "hogehoge",
 	}
 
-	filler := newFiller(formData)
+	filler := newFiller(formData, nil)
 
 	htmlstr := filler.fill([]byte(HTML))
 
@@ -425,10 +425,183 @@ func BenchmarkFillinForm(b *testing.B) {
 		"body":   "hogehoge",
 	}
 
-	filler := newFiller(formData)
+	filler := newFiller(formData, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		filler.fill([]byte(HTML))
+	}
+}
+
+var HTMLMulti = `
+<html><head><title>title of test</title></head><body>
+<form id="myform" action="./" method="POST">
+  <input type="hidden" name="hidden"/>
+  <input type="password" name="pass"/>
+  <input type="text" name="title"/>
+  <input type="checkbox" name="chk" value="chkval" checked=checked/>
+  <input type="radio" name="rdo" value="rdoval1" checked=checked/>
+  <input type="radio" name="rdo" value="rdoval2" />
+  <select name="select">
+    <option value="1">1</option>
+    <option value="2" selected=selected>2</option>
+  </select>
+  <textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">gakuburu</textarea>
+  <input type="submit" value="Send">
+</form>
+
+<form id="myform2" action="./" method="POST">
+  <input type="hidden" name="hidden"/>
+  <input type="password" name="pass"/>
+  <input type="text" name="title"/>
+  <input type="checkbox" name="chk" value="chkval" checked=checked/>
+  <input type="radio" name="rdo" value="rdoval1" checked=checked/>
+  <input type="radio" name="rdo" value="rdoval2" />
+  <select name="select">
+    <option value="1">1</option>
+    <option value="2" selected=selected>2</option>
+  </select>
+  <textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">gakuburu</textarea>
+  <input type="submit" value="Send">
+</form>
+</body></html>
+`
+
+var HTMLMultiSuccess = `
+<html><head><title>title of test</title></head><body>
+<form id="myform" action="./" method="POST">
+  <input type="hidden" name="hidden"/>
+  <input type="password" name="pass"/>
+  <input type="text" name="title"/>
+  <input type="checkbox" name="chk" value="chkval" checked=checked/>
+  <input type="radio" name="rdo" value="rdoval1" checked=checked/>
+  <input type="radio" name="rdo" value="rdoval2" />
+  <select name="select">
+    <option value="1">1</option>
+    <option value="2" selected=selected>2</option>
+  </select>
+  <textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">gakuburu</textarea>
+  <input type="submit" value="Send">
+</form>
+
+<form id="myform2" action="./" method="POST">
+  <input type="hidden" name="hidden"/>
+  <input type="password" name="pass"/>
+  <input type="text" name="title" value="hogeTitle"/>
+  <input type="checkbox" name="chk" value="chkval"/>
+  <input type="radio" name="rdo" value="rdoval1"/>
+  <input type="radio" name="rdo" value="rdoval2" checked="checked"/>
+  <select name="select">
+    <option value="1" selected="selected">1</option>
+    <option value="2">2</option>
+  </select>
+  <textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">hogehoge</textarea>
+  <input type="submit" value="Send">
+</form>
+</body></html>
+`
+
+var HTMLPassword = `
+<html><head><title>title of test</title></head><body>
+<form name="myform" action="./" method="POST">
+  <input type="password" name="pass"/>
+  <input type="text" name="title"/>
+  <input type="checkbox" name="chk" value="chkval" checked=checked/>
+  <input type="radio" name="rdo" value="rdoval1" checked=checked/>
+  <input type="radio" name="rdo" value="rdoval2" />
+  <select name="select">
+    <option value="1">1</option>
+    <option value="2" selected=selected>2</option>
+  </select>
+  <textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">gakuburu</textarea>
+  <input type="submit" value="Send">
+</form>
+</body></html>
+`
+
+var HTMLPasswordSuccess = `
+<html><head><title>title of test</title></head><body>
+<form name="myform" action="./" method="POST">
+  <input type="password" name="pass" value="hogepass"/>
+  <input type="text" name="title" value="hogeTitle"/>
+  <input type="checkbox" name="chk" value="chkval"/>
+  <input type="radio" name="rdo" value="rdoval1"/>
+  <input type="radio" name="rdo" value="rdoval2" checked="checked"/>
+  <select name="select">
+    <option value="1" selected="selected">1</option>
+    <option value="2">2</option>
+  </select>
+  <textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">hogehoge</textarea>
+  <input type="submit" value="Send">
+</form>
+</body></html>
+`
+
+var HTMLFields = `
+<html><head><title>title of test</title></head><body>
+<form name="myform" action="./" method="POST">
+  <input type="password" name="pass"/>
+  <input type="text" name="title"/>
+  <input type="checkbox" name="chk" value="chkval" checked=checked/>
+  <input type="radio" name="rdo" value="rdoval1" checked=checked/>
+  <input type="radio" name="rdo" value="rdoval2" />
+  <select name="select">
+    <option value="1">1</option>
+    <option value="2" selected=selected>2</option>
+  </select>
+  <textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">gakuburu</textarea>
+  <input type="submit" value="Send">
+</form>
+</body></html>
+`
+
+var HTMLFieldsSuccess = `
+<html><head><title>title of test</title></head><body>
+<form name="myform" action="./" method="POST">
+  <input type="password" name="pass"/>
+  <input type="text" name="title"/>
+  <input type="checkbox" name="chk" value="chkval"/>
+  <input type="radio" name="rdo" value="rdoval1" checked=checked/>
+  <input type="radio" name="rdo" value="rdoval2" />
+  <select name="select">
+    <option value="1" selected="selected">1</option>
+    <option value="2">2</option>
+  </select>
+  <textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">hogehoge</textarea>
+  <input type="submit" value="Send">
+</form>
+</body></html>
+`
+
+func TestFillinFormOptions(t *testing.T) {
+	formData := map[string]interface{}{
+		"title":  "hogeTitle",
+		"chk":    "1",
+		"rdo":    "rdoval2",
+		"select": "1",
+		"body":   "hogehoge",
+		"pass":   "hogepass",
+	}
+
+	filler := newFiller(formData, map[string]interface{}{"Target": "myform2"})
+
+	htmlstr := filler.fill([]byte(HTMLMulti))
+
+	if string(htmlstr) != HTMLMultiSuccess {
+		t.Errorf("fillinform error: ", string(htmlstr))
+	}
+
+	filler = newFiller(formData, map[string]interface{}{"FillPassword": true})
+	htmlstr = filler.fill([]byte(HTMLPassword))
+
+	if string(htmlstr) != HTMLPasswordSuccess {
+		t.Errorf("fillinform error: ", string(htmlstr))
+	}
+
+	filler = newFiller(formData, map[string]interface{}{"IgnoreFields": []string{"title", "rdo"}})
+	htmlstr = filler.fill([]byte(HTMLFields))
+
+	if string(htmlstr) != HTMLFieldsSuccess {
+		t.Errorf("fillinform error: ", string(htmlstr))
 	}
 }
