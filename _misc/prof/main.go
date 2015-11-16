@@ -22,6 +22,7 @@ func main() {
 	go func() {
 		for sig := range c {
 			log.Printf("captured %v, stopping profiler and exiting...", sig)
+			log.Printf("\ngo tool pprof ./prof fillinform.prof\n")
 			pprof.StopCPUProfile()
 			os.Exit(1)
 		}

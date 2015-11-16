@@ -1,0 +1,66 @@
+$ go tool pprof ./prof fillinform.prof
+(pprof) top50
+7890ms of 9900ms total (79.70%)
+Dropped 103 nodes (cum <= 49.50ms)
+Showing top 50 nodes out of 185 (cum >= 70ms)
+      flat  flat%   sum%        cum   cum%
+     840ms  8.48%  8.48%      840ms  8.48%  runtime.futex
+     840ms  8.48% 16.97%      840ms  8.48%  runtime.memclr
+     530ms  5.35% 22.32%      550ms  5.56%  runtime.scanblock
+     490ms  4.95% 27.27%      500ms  5.05%  runtime.heapBitsSetType
+     490ms  4.95% 32.22%     2590ms 26.16%  runtime.mallocgc
+     440ms  4.44% 36.67%      820ms  8.28%  regexp.(*machine).tryBacktrack
+     330ms  3.33% 40.00%     1150ms 11.62%  runtime.growslice
+     310ms  3.13% 43.13%      310ms  3.13%  runtime.usleep
+     240ms  2.42% 45.56%      240ms  2.42%  runtime.mSpan_Sweep.func1
+     230ms  2.32% 47.88%      280ms  2.83%  runtime.scanobject
+     200ms  2.02% 49.90%      200ms  2.02%  runtime.xchg
+     190ms  1.92% 51.82%      190ms  1.92%  runtime._ExternalCode
+     180ms  1.82% 53.64%     1130ms 11.41%  regexp/syntax.(*parser).parseClass
+     170ms  1.72% 55.35%      230ms  2.32%  unicode.SimpleFold
+     160ms  1.62% 56.97%      410ms  4.14%  runtime.heapBitsSweepSpan
+     140ms  1.41% 58.38%      640ms  6.46%  runtime.mSpan_Sweep
+     120ms  1.21% 59.60%      120ms  1.21%  regexp.(*bitState).push
+     110ms  1.11% 60.71%      120ms  1.21%  regexp/syntax.(*parser).maybeConcat
+     110ms  1.11% 61.82%      520ms  5.25%  regexp/syntax.(*parser).push
+     100ms  1.01% 62.83%      750ms  7.58%  regexp/syntax.(*compiler).compile
+     100ms  1.01% 63.84%     2340ms 23.64%  regexp/syntax.Parse
+      90ms  0.91% 64.75%       90ms  0.91%  regexp.(*inputBytes).step
+      90ms  0.91% 65.66%      490ms  4.95%  regexp/syntax.(*compiler).rune
+      80ms  0.81% 66.46%       80ms  0.81%  runtime.memmove
+      70ms  0.71% 67.17%      680ms  6.87%  runtime.findrunnable
+      70ms  0.71% 67.88%       70ms  0.71%  runtime.heapBitsForObject
+      70ms  0.71% 68.59%      590ms  5.96%  runtime.newobject
+      60ms  0.61% 69.19%     2150ms 21.72%  regexp.(*machine).backtrack
+      60ms  0.61% 69.80%      240ms  2.42%  regexp/syntax.appendRange
+      60ms  0.61% 70.40%      760ms  7.68%  runtime.mHeap_Alloc
+      60ms  0.61% 71.01%     2040ms 20.61%  runtime.newarray
+      50ms  0.51% 71.52%      170ms  1.72%  regexp/syntax.(*Inst).MatchRunePos
+      50ms  0.51% 72.02%       60ms  0.61%  regexp/syntax.(*Regexp).Simplify
+      50ms  0.51% 72.53%      310ms  3.13%  regexp/syntax.(*parser).collapse
+      50ms  0.51% 73.03%      360ms  3.64%  regexp/syntax.(*parser).concat
+      50ms  0.51% 73.54%      110ms  1.11%  regexp/syntax.(*parser).repeat
+      50ms  0.51% 74.04%       80ms  0.81%  regexp/syntax.nextRune
+      50ms  0.51% 74.55%       50ms  0.51%  runtime.cas
+      50ms  0.51% 75.05%       50ms  0.51%  runtime.mHeap_AllocSpanLocked
+      50ms  0.51% 75.56%       50ms  0.51%  runtime.readvarint
+      50ms  0.51% 76.06%      110ms  1.11%  runtime.writebarrierptr_nostore1
+      40ms   0.4% 76.46%     1250ms 12.63%  regexp.(*bitState).reset
+      40ms   0.4% 76.87%     3430ms 34.65%  regexp.compile
+      40ms   0.4% 77.27%      170ms  1.72%  regexp/syntax.(*parser).parsePerlClassEscape
+      40ms   0.4% 77.68%      840ms  8.48%  regexp/syntax.Compile
+      40ms   0.4% 78.08%       70ms  0.71%  runtime.funcspdelta
+      40ms   0.4% 78.48%      250ms  2.53%  runtime.gentraceback
+      40ms   0.4% 78.89%     1010ms 10.20%  runtime.mCentral_CacheSpan
+      40ms   0.4% 79.29%       50ms  0.51%  runtime.mHeap_FreeSpanLocked
+      40ms   0.4% 79.70%       70ms  0.71%  runtime.readgstatus
+
+$go test -bench . -benchmem
+PASS
+BenchmarkUnquote-3   	  100000	     22489 ns/op	   41681 B/op	      36 allocs/op
+BenchmarkGetType-3   	   30000	     52898 ns/op	   88609 B/op	     111 allocs/op
+BenchmarkGetValue-3  	   30000	     57309 ns/op	   88881 B/op	     114 allocs/op
+BenchmarkGetName-3   	   30000	     57050 ns/op	   88609 B/op	     111 allocs/op
+BenchmarkEscapeHTML-3	   20000	     67924 ns/op	  162562 B/op	     118 allocs/op
+BenchmarkFillinForm-3	    1000	   2229289 ns/op	 2663463 B/op	    3861 allocs/op
+ok  	github.com/sheercat/fillinform	13.746s
