@@ -1,0 +1,74 @@
+(pprof) top50
+129.49s of 137.91s total (93.89%)
+Dropped 185 nodes (cum <= 0.69s)
+Showing top 50 nodes out of 86 (cum >= 3.79s)
+      flat  flat%   sum%        cum   cum%
+    46.11s 33.43% 33.43%     99.23s 71.95%  regexp.(*machine).tryBacktrack
+    14.47s 10.49% 43.93%     14.47s 10.49%  regexp.(*bitState).push
+    12.89s  9.35% 53.27%     15.67s 11.36%  unicode.SimpleFold
+    11.57s  8.39% 61.66%     11.57s  8.39%  regexp.(*inputBytes).step
+     9.44s  6.85% 68.51%     25.11s 18.21%  regexp/syntax.(*Inst).MatchRunePos
+     3.80s  2.76% 71.26%    109.07s 79.09%  regexp.(*machine).backtrack
+     3.25s  2.36% 73.62%     28.36s 20.56%  regexp/syntax.(*Inst).MatchRune
+     2.94s  2.13% 75.75%      6.89s  5.00%  runtime.mallocgc
+     2.61s  1.89% 77.64%      2.61s  1.89%  runtime.memclr
+     1.94s  1.41% 79.05%      1.94s  1.41%  runtime.mSpan_Sweep.func1
+     1.48s  1.07% 80.12%      1.48s  1.07%  unicode.ToLower
+     1.30s  0.94% 81.07%      1.30s  0.94%  unicode.ToUpper
+     1.26s  0.91% 81.98%      1.26s  0.91%  runtime.indexbytebody
+     1.18s  0.86% 82.84%      1.18s  0.86%  runtime.futex
+     1.03s  0.75% 83.58%      3.68s  2.67%  runtime.growslice
+     1.01s  0.73% 84.32%      1.01s  0.73%  runtime.heapBitsSetType
+     0.96s   0.7% 85.01%      1.39s  1.01%  runtime.mapaccess2_faststr
+     0.87s  0.63% 85.64%    115.31s 83.61%  regexp.(*Regexp).doExecute
+     0.86s  0.62% 86.27%      4.32s  3.13%  runtime.makeslice
+     0.85s  0.62% 86.88%      2.11s  1.53%  regexp.(*bitState).reset
+     0.85s  0.62% 87.50%      0.85s  0.62%  runtime.memmove
+     0.80s  0.58% 88.08%      0.80s  0.58%  sync/atomic.AddUint32
+     0.73s  0.53% 88.61%      0.73s  0.53%  runtime.duffzero
+     0.69s   0.5% 89.11%      0.69s   0.5%  sync/atomic.CompareAndSwapUint32
+     0.49s  0.36% 89.46%      3.72s  2.70%  runtime.newarray
+     0.46s  0.33% 89.80%     30.71s 22.27%  regexp.(*Regexp).FindSubmatch
+     0.41s   0.3% 90.09%    131.06s 95.03%  regexp.(*Regexp).replaceAll
+     0.39s  0.28% 90.38%      2.33s  1.69%  runtime.heapBitsSweepSpan
+     0.39s  0.28% 90.66%      1.13s  0.82%  sync.(*Mutex).Lock
+     0.36s  0.26% 90.92%     54.89s 39.80%  github.com/sheercat/fillinform.Filler.fillInput
+     0.36s  0.26% 91.18%      1.65s  1.20%  regexp.(*inputBytes).index
+     0.32s  0.23% 91.41%      1.29s  0.94%  bytes.Index
+     0.31s  0.22% 91.64%      1.32s  0.96%  regexp.(*Regexp).expand
+     0.31s  0.22% 91.86%      0.69s   0.5%  runtime.mapassign1
+     0.29s  0.21% 92.07%      1.30s  0.94%  regexp.(*Regexp).put
+     0.27s   0.2% 92.27%      1.52s  1.10%  regexp.(*Regexp).get
+     0.27s   0.2% 92.47%      1.53s  1.11%  runtime.mCentral_Grow
+     0.24s  0.17% 92.64%      1.07s  0.78%  sync.(*Mutex).Unlock
+     0.23s  0.17% 92.81%      2.20s  1.60%  github.com/sheercat/fillinform.Filler.getParam
+     0.17s  0.12% 92.93%    110.06s 79.81%  regexp.(*Regexp).ReplaceAllFunc.func1
+     0.17s  0.12% 93.05%      2.72s  1.97%  runtime.mSpan_Sweep
+     0.16s  0.12% 93.17%      1.98s  1.44%  bytes.Trim
+     0.14s   0.1% 93.27%      9.83s  7.13%  github.com/sheercat/fillinform.Filler.fillOption
+     0.14s   0.1% 93.37%      7.62s  5.53%  github.com/sheercat/fillinform.Filler.getType
+     0.13s 0.094% 93.47%      2.11s  1.53%  github.com/sheercat/fillinform.Filler.unquote
+     0.13s 0.094% 93.56%      1.67s  1.21%  regexp.(*Regexp).ReplaceAll.func1
+     0.13s 0.094% 93.66%      6.34s  4.60%  runtime.systemstack
+     0.11s  0.08% 93.74%      1.03s  0.75%  github.com/sheercat/fillinform.Filler.compiledRegexp
+     0.11s  0.08% 93.81%     14.58s 10.57%  github.com/sheercat/fillinform.Filler.getName
+     0.11s  0.08% 93.89%      3.79s  2.75%  runtime.growslice_n
+
+(master)$go test -bench . -benchmem
+PASS
+BenchmarkUnquote-3     	10000000	       156 ns/op	      32 B/op	       1 allocs/op
+BenchmarkGetType-3     	 1000000	      1817 ns/op	     112 B/op	       3 allocs/op
+BenchmarkGetValue-3    	 1000000	      1828 ns/op	     112 B/op	       3 allocs/op
+BenchmarkGetName-3     	 1000000	      1866 ns/op	     112 B/op	       3 allocs/op
+BenchmarkEscapeHTML-3  	 1000000	      1377 ns/op	     336 B/op	       4 allocs/op
+BenchmarkFillInput-3   	  100000	     24442 ns/op	     624 B/op	      15 allocs/op
+BenchmarkFillTextarea-3	  200000	     10075 ns/op	     816 B/op	      14 allocs/op
+BenchmarkFillSelect-3  	   20000	     64793 ns/op	    2128 B/op	      45 allocs/op
+BenchmarkFillOption-3  	  200000	      8055 ns/op	     352 B/op	      10 allocs/op
+BenchmarkFillinForm-3  	   10000	    188316 ns/op	    9136 B/op	     113 allocs/op
+ok  	github.com/sheercat/fillinform	19.086s
+
+
+0.0037
+0.0016
+
