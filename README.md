@@ -1,8 +1,6 @@
 # fillinform
 
-port from [HTML::FillInForm::Lite](https://github.com/gfx/p5-HTML-FillInForm-Lite)
-
-HTML::FillinForm::Lite is licensed to [Fuji, Goro (gfx)](https://github.com/gfx/).
+This is a golang port of [HTML::FillInForm::Lite](https://github.com/gfx/p5-HTML-FillInForm-Lite). 
 
 ## installation
 
