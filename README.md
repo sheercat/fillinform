@@ -1,6 +1,8 @@
 # fillinform
 
-This is a golang port of [HTML::FillInForm::Lite](https://github.com/gfx/p5-HTML-FillInForm-Lite). 
+This is a golang port of [HTML::FillInForm::Lite](https://github.com/gfx/p5-HTML-FillInForm-Lite).
+
+About 3 times slower than HTML::FillInForm::Lite.
 
 ## installation
 
@@ -35,7 +37,7 @@ use pongo2
        http.Error(w, err.Error(), http.StatusInternalServerError)
     }
     
-    bytes, err = fillinform.Fill(bytes, formData.(map[string]interface{}), nil)
+    bytes, err = fillinform.Fill(bytes, formData.(map[string][]string), nil)
     if err != nil {
        http.Error(w, err.Error(), http.StatusInternalServerError)
     }
@@ -43,9 +45,4 @@ use pongo2
 
 ## License
 
-
-
 fillinform licensed under the MIT
-
-
-
