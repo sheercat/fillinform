@@ -44,6 +44,7 @@ const (
 
 var BACheckbox = []byte(`checkbox`)
 var BARadio = []byte(`radio`)
+var BAText = []byte(`text`)
 var BAAmp = []byte(`&amp;`)
 var BALt = []byte(`&lt;`)
 var BAGt = []byte(`&gt;`)
@@ -104,13 +105,14 @@ func (f Filler) compiledRegexp(key string) *regexp.Regexp {
 type FillInFormOptions struct {
 	IgnoreFields map[string]bool
 	IgnoreTypes  map[string]bool
+	FillPassword bool
 	Target       string
 }
 
 type Filler struct {
 	FillInFormOptions
-	Params map[string][]byte
-	Data   map[string]interface{}
+	Params map[string][][]byte
+	Data   map[string][]string
 }
 
 type Writer struct {
@@ -124,6 +126,8 @@ func setOptions(options map[string]interface{}) *FillInFormOptions {
 	ffo.IgnoreFields = make(map[string]bool)
 	ffo.IgnoreTypes = make(map[string]bool)
 	ffo.IgnoreTypes["password"] = true
+	ffo.IgnoreTypes["submit"] = true
+	ffo.IgnoreTypes["image"] = true
 	ffo.Target = ""
 
 	for key, val := range options {
@@ -154,13 +158,13 @@ func setOptions(options map[string]interface{}) *FillInFormOptions {
 	return &ffo
 }
 
-func newFiller(data map[string]interface{}, options map[string]interface{}) *Filler {
+func newFiller(data map[string][]string, options map[string]interface{}) *Filler {
 	ffo := setOptions(options)
-	return &Filler{Data: data, Params: make(map[string][]byte), FillInFormOptions: *ffo}
+	return &Filler{Data: data, Params: make(map[string][][]byte), FillInFormOptions: *ffo}
 }
 
 // return writer implement interface io.Writer.
-func FillWriter(wr io.Writer, data map[string]interface{}, options map[string]interface{}) io.Writer {
+func FillWriter(wr io.Writer, data map[string][]string, options map[string]interface{}) io.Writer {
 	filler := newFiller(data, options)
 	return Writer{filler: filler, wr: wr}
 }
@@ -170,7 +174,7 @@ func (w Writer) Write(p []byte) (int, error) {
 }
 
 // return filled formed html.
-func Fill(body []byte, data map[string]interface{}, options map[string]interface{}) []byte {
+func Fill(body []byte, data map[string][]string, options map[string]interface{}) []byte {
 	filler := newFiller(data, options)
 	return filler.fill(body)
 }
@@ -183,7 +187,7 @@ func (f Filler) fillForm(formbody []byte) []byte {
 	// process only form with target id
 	if f.FillInFormOptions.Target != "" {
 		formTag := f.compiledRegexp("start form").FindSubmatch(formbody)
-		if cap(formTag) == 2 {
+		if len(formTag) == 2 {
 			if id := f.getId(formTag[1]); !bytes.Equal(id, []byte{}) {
 				if string(id) != f.FillInFormOptions.Target {
 					return formbody
@@ -205,7 +209,7 @@ func (f Filler) unquote(tag []byte) []byte {
 
 func (f Filler) getId(tag []byte) []byte {
 	id := f.compiledRegexp("id").FindSubmatch(tag)
-	if cap(id) == 2 {
+	if len(id) == 2 {
 		return f.unquote(id[1])
 	}
 	return []byte{}
@@ -213,7 +217,7 @@ func (f Filler) getId(tag []byte) []byte {
 
 func (f Filler) getType(tag []byte) []byte {
 	itype := f.compiledRegexp("type").FindSubmatch(tag)
-	if cap(itype) == 2 {
+	if len(itype) == 2 {
 		return f.unquote(itype[1])
 	}
 	return []byte{}
@@ -221,7 +225,7 @@ func (f Filler) getType(tag []byte) []byte {
 
 func (f Filler) getValue(tag []byte) []byte {
 	value := f.compiledRegexp("value").FindSubmatch(tag)
-	if cap(value) == 2 {
+	if len(value) == 2 {
 		return f.unquote(value[1])
 	}
 	return []byte{}
@@ -229,7 +233,7 @@ func (f Filler) getValue(tag []byte) []byte {
 
 func (f Filler) getName(tag []byte) []byte {
 	name := f.compiledRegexp("name").FindSubmatch(tag)
-	if cap(name) == 2 {
+	if len(name) == 2 {
 		return f.unquote(name[1])
 	}
 	return []byte{}
@@ -239,28 +243,21 @@ func (f Filler) escapeHTML(tag []byte) []byte {
 	return bytes.Replace(bytes.Replace(bytes.Replace(bytes.Replace(tag, []byte{'&'}, BAAmp, -1), []byte{'<'}, BALt, -1), []byte{'>'}, BAGt, -1), []byte{'"'}, BAQuot, -1)
 }
 
-func (f Filler) getParam(name []byte) ([]byte, bool) {
-	// ignore
-	nameStr := string(name)
-	if _, ok := f.IgnoreFields[nameStr]; ok {
-		return []byte{}, false
-	}
+func (f Filler) getParam(name string) ([][]byte, bool) {
 	// like cache
-	if param, ok := f.Params[nameStr]; ok {
+	if param, ok := f.Params[name]; ok {
 		return param, true
 	}
-	if param, ok := f.Data[nameStr]; ok {
-		if casted, ok := param.(string); ok {
-			f.Params[nameStr] = []byte(casted)
-			return f.Params[nameStr], true
+	if param, ok := f.Data[name]; ok {
+		vals := make([][]byte, len(param))
+		for i, val := range param {
+			vals[i] = []byte(val)
 		}
-		if casted, ok := param.(int); ok {
-			f.Params[nameStr] = []byte(fmt.Sprintf("%d", casted))
-			return f.Params[nameStr], true
-		}
+		f.Params[name] = vals
+		return f.Params[name], true
 	}
 
-	return []byte{}, false
+	return [][]byte{}, false
 }
 
 func (f Filler) fillInput(tag []byte) []byte {
@@ -274,22 +271,30 @@ func (f Filler) fillInput(tag []byte) []byte {
 		return tag
 	}
 
-	paramValue, exists := f.getParam(f.getName(tag))
-	if !exists {
+	name := string(f.getName(tag))
+	if _, ok := f.IgnoreFields[name]; ok {
 		return tag
 	}
+	paramValues, exists := f.getParam(name)
 
 	if bytes.Equal(inputType, BACheckbox) || bytes.Equal(inputType, BARadio) {
 		value := f.getValue(tag)
 
-		if bytes.Equal(paramValue, value) {
-			if !f.compiledRegexp("checked").Match(tag) {
-				tag = f.compiledRegexp("space+>").ReplaceAll(tag, BAChecked)
+		tag = f.compiledRegexp("space+checked").ReplaceAll(tag, BABlank)
+		for _, paramValue := range paramValues {
+			if bytes.Equal(paramValue, value) {
+				if !f.compiledRegexp("checked").Match(tag) {
+					tag = f.compiledRegexp("space+>").ReplaceAll(tag, BAChecked)
+				}
 			}
-		} else {
-			tag = f.compiledRegexp("space+checked").ReplaceAll(tag, BABlank)
 		}
-	} else { // text
+	} else { // if bytes.Equal(inputType, BAText)
+		var paramValue []byte
+		if !exists {
+			paramValue = []byte("")
+		} else {
+			paramValue = paramValues[0]
+		}
 		escapedValue := f.escapeHTML(paramValue)
 		reg := f.compiledRegexp("value(nocapture)")
 		if reg.Match(tag) {
@@ -303,9 +308,16 @@ func (f Filler) fillInput(tag []byte) []byte {
 }
 
 func (f Filler) fillTextarea(tag []byte) []byte {
-	paramValue, exists := f.getParam(f.getName(tag))
-	if !exists {
+	name := string(f.getName(tag))
+	if _, ok := f.IgnoreFields[name]; ok {
 		return tag
+	}
+	paramValues, exists := f.getParam(name)
+	var paramValue []byte
+	if !exists {
+		paramValue = []byte("")
+	} else {
+		paramValue = paramValues[0]
 	}
 	tag = f.compiledRegexp("textarea(3capture)").ReplaceAll(tag, append([]byte(`${1}`), append(f.escapeHTML(paramValue), []byte(`${3}`)...)...))
 
@@ -313,37 +325,40 @@ func (f Filler) fillTextarea(tag []byte) []byte {
 }
 
 func (f Filler) fillSelect(tag []byte) []byte {
-	paramValue, exists := f.getParam(f.getName(tag))
-	if !exists {
+	name := string(f.getName(tag))
+	if _, ok := f.IgnoreFields[name]; ok {
 		return tag
 	}
+	paramValues, exists := f.getParam(name)
 
-	if f.compiledRegexp("multiple").Match(tag) {
-		return tag
+	if exists {
+		if !f.compiledRegexp("multiple").Match(tag) {
+			paramValues = paramValues[:1]
+		}
 	}
 
 	return f.compiledRegexp("option(nocapture)").ReplaceAllFunc(tag,
 		func(tag []byte) []byte {
-			return f.fillOption(tag, paramValue)
+			return f.fillOption(tag, paramValues)
 		})
 }
 
-func (f Filler) fillOption(tag, paramValue []byte) []byte {
+func (f Filler) fillOption(tag []byte, paramValues [][]byte) []byte {
 	value := f.getValue(tag)
 	if bytes.Equal(value, []byte{}) {
 		value = f.compiledRegexp("option").ReplaceAll(tag, []byte(`$1`))
 	}
 
-	if bytes.Equal(paramValue, value) {
-		if !f.compiledRegexp("selected").Match(tag) {
-			tag = f.compiledRegexp("start option").ReplaceAllFunc(tag,
-				func(tag []byte) []byte {
-					return f.compiledRegexp("tag end").ReplaceAll(tag, BASelected)
-				})
+	tag = f.compiledRegexp("space+selected").ReplaceAll(tag, BABlank)
+	for _, paramValue := range paramValues {
+		if bytes.Equal(paramValue, value) {
+			if !f.compiledRegexp("selected").Match(tag) {
+				tag = f.compiledRegexp("start option").ReplaceAllFunc(tag,
+					func(tag []byte) []byte {
+						return f.compiledRegexp("tag end").ReplaceAll(tag, BASelected)
+					})
+			}
 		}
-	} else {
-		tag = f.compiledRegexp("space+selected").ReplaceAll(tag, BABlank)
 	}
-
 	return tag
 }
