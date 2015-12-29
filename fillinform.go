@@ -21,38 +21,40 @@ const (
 	_Name     = `name`
 	_Value    = `value`
 
-	Space     = `\s`
-	AttrName  = `[\w\-]+`
-	AttrValue = `(?:"[^"]*"|'[^']*'|[^'"/>\s]+|[\w\-]+)`
-	Attr      = `(?:` + Space + `+(?:` + AttrName + `(?:=` + AttrValue + `)?))`
+	spaceRxp     = `\s`
+	attrNameRxp  = `[\w\-]+`
+	attrValueRxp = `(?:"[^"]*"|'[^']*'|[^'"/>\s]+|[\w\-]+)`
+	attrRxp      = `(?:` + spaceRxp + `+(?:` + attrNameRxp + `(?:=` + attrValueRxp + `)?))`
 
-	StartForm     = `(?:<` + _Form + Attr + `+` + Space + `*>)`
-	Input         = `(?:<` + _Input + Attr + `+` + Space + `*/?>)`
-	StartSelect   = `(?:<` + _Select + Attr + `+` + Space + `*>)`
-	StartOption   = `(?:<` + _Option + Attr + `*` + Space + `*>)`
-	StartTextarea = `(?:<` + _Textarea + Attr + `+` + Space + `*>)`
+	startFormRxp     = `(?:<` + _Form + attrRxp + `+` + spaceRxp + `*>)`
+	inputRxp         = `(?:<` + _Input + attrRxp + `+` + spaceRxp + `*/?>)`
+	startSelectRxp   = `(?:<` + _Select + attrRxp + `+` + spaceRxp + `*>)`
+	startOptionRxp   = `(?:<` + _Option + attrRxp + `*` + spaceRxp + `*>)`
+	startTextareaRxp = `(?:<` + _Textarea + attrRxp + `+` + spaceRxp + `*>)`
 
-	EndForm     = `(?:</` + _Form + `>)`
-	EndSelect   = `(?:</` + _Select + `>)`
-	EndOption   = `(?:</` + _Option + `>)`
-	EndTextarea = `(?:</` + _Textarea + `>)`
+	endFormRxp     = `(?:</` + _Form + `>)`
+	endSelectRxp   = `(?:</` + _Select + `>)`
+	endOptionRxp   = `(?:</` + _Option + `>)`
+	endTextareaRxp = `(?:</` + _Textarea + `>)`
 
-	Checked  = `(?:` + _Checked + `(?:=(?:"` + _Checked + `"|'` + _Checked + `'|` + _Checked + `))?)`
-	Selected = `(?:` + _Selected + `(?:=(?:"` + _Selected + `"|'` + _Selected + `'|` + _Selected + `))?)`
-	Multiple = `(?:` + _Multiple + `(?:=(?:"` + _Multiple + `"|'` + _Multiple + `'|` + _Multiple + `))?)`
+	checkedRxp  = `(?:` + _Checked + `(?:=(?:"` + _Checked + `"|'` + _Checked + `'|` + _Checked + `))?)`
+	selectedRxp = `(?:` + _Selected + `(?:=(?:"` + _Selected + `"|'` + _Selected + `'|` + _Selected + `))?)`
+	multipleRxp = `(?:` + _Multiple + `(?:=(?:"` + _Multiple + `"|'` + _Multiple + `'|` + _Multiple + `))?)`
 )
 
-var BACheckbox = []byte(`checkbox`)
-var BARadio = []byte(`radio`)
-var BAText = []byte(`text`)
-var BAAmp = []byte(`&amp;`)
-var BALt = []byte(`&lt;`)
-var BAGt = []byte(`&gt;`)
-var BAQuot = []byte(`&quot;`)
-var BAChecked = []byte(` checked="checked"$1>`)
-var BASelected = []byte(` selected="selected">`)
-var BABlank = []byte(``)
-var BADQuot = []byte(`"`)
+var (
+	checkboxBytes   = []byte(`checkbox`)
+	radioBytes      = []byte(`radio`)
+	textBytes       = []byte(`text`)
+	ampBytes        = []byte(`&amp;`)
+	ltBytes         = []byte(`&lt;`)
+	gtBytes         = []byte(`&gt;`)
+	quotBytes       = []byte(`&quot;`)
+	checkedBytes    = []byte(` checked="checked"$1>`)
+	selectedBytes   = []byte(` selected="selected">`)
+	blankBytes      = []byte(``)
+	doubleQuotBytes = []byte(`"`)
+)
 
 var CompiledRegexpMap map[string]*regexp.Regexp
 
@@ -66,30 +68,30 @@ func compileMultiLine(regstr string) *regexp.Regexp {
 
 func createRegexpMap() {
 	CompiledRegexpMap = make(map[string]*regexp.Regexp)
-	CompiledRegexpMap["form"] = compileMultiLine(StartForm + `.*?` + EndForm)
-	CompiledRegexpMap["start form"] = compileMultiLine(`(` + StartForm + `)`)
+	CompiledRegexpMap["form"] = compileMultiLine(startFormRxp + `.*?` + endFormRxp)
+	CompiledRegexpMap["start form"] = compileMultiLine(`(` + startFormRxp + `)`)
 
-	CompiledRegexpMap["input"] = compileMultiLine(Input)
-	CompiledRegexpMap["select"] = compileMultiLine(StartSelect + `.*?` + EndSelect)
-	CompiledRegexpMap["textarea"] = compileMultiLine(StartTextarea + `.*?` + EndTextarea)
+	CompiledRegexpMap["input"] = compileMultiLine(inputRxp)
+	CompiledRegexpMap["select"] = compileMultiLine(startSelectRxp + `.*?` + endSelectRxp)
+	CompiledRegexpMap["textarea"] = compileMultiLine(startTextareaRxp + `.*?` + endTextareaRxp)
 
-	CompiledRegexpMap["id"] = compileMultiLine(_Id + `=(` + AttrValue + `)`)
-	CompiledRegexpMap["type"] = compileMultiLine(_Type + `=(` + AttrValue + `)`)
-	CompiledRegexpMap["value"] = compileMultiLine(_Value + `=(` + AttrValue + `)`)
-	CompiledRegexpMap["name"] = compileMultiLine(_Name + `=(` + AttrValue + `)`)
+	CompiledRegexpMap["id"] = compileMultiLine(_Id + `=(` + attrValueRxp + `)`)
+	CompiledRegexpMap["type"] = compileMultiLine(_Type + `=(` + attrValueRxp + `)`)
+	CompiledRegexpMap["value"] = compileMultiLine(_Value + `=(` + attrValueRxp + `)`)
+	CompiledRegexpMap["name"] = compileMultiLine(_Name + `=(` + attrValueRxp + `)`)
 
-	CompiledRegexpMap["checked"] = compileMultiLine(Checked)
-	CompiledRegexpMap["space+>"] = compileMultiLine(Space + `*(/?)>\z`)
-	CompiledRegexpMap["space+checked"] = compileMultiLine(Space + Checked)
-	CompiledRegexpMap["value(nocapture)"] = compileMultiLine(_Value + `=` + AttrValue)
-	CompiledRegexpMap["textarea(3capture)"] = compileMultiLine(`(` + StartTextarea + `)(.*?)(` + EndTextarea + `)`)
-	CompiledRegexpMap["multiple"] = compileMultiLine(Multiple)
-	CompiledRegexpMap["option"] = compileMultiLine(StartOption + `(.*?)` + EndOption)
-	CompiledRegexpMap["option(nocapture)"] = compileMultiLine(StartOption + `.*?` + EndOption)
-	CompiledRegexpMap["selected"] = compileMultiLine(Selected)
-	CompiledRegexpMap["start option"] = compileMultiLine(StartOption)
-	CompiledRegexpMap["tag end"] = compileMultiLine(Space + `*>\z`)
-	CompiledRegexpMap["space+selected"] = compileMultiLine(Space + Selected)
+	CompiledRegexpMap["checked"] = compileMultiLine(checkedRxp)
+	CompiledRegexpMap["space+>"] = compileMultiLine(spaceRxp + `*(/?)>\z`)
+	CompiledRegexpMap["space+checked"] = compileMultiLine(spaceRxp + checkedRxp)
+	CompiledRegexpMap["value(nocapture)"] = compileMultiLine(_Value + `=` + attrValueRxp)
+	CompiledRegexpMap["textarea(3capture)"] = compileMultiLine(`(` + startTextareaRxp + `)(.*?)(` + endTextareaRxp + `)`)
+	CompiledRegexpMap["multiple"] = compileMultiLine(multipleRxp)
+	CompiledRegexpMap["option"] = compileMultiLine(startOptionRxp + `(.*?)` + endOptionRxp)
+	CompiledRegexpMap["option(nocapture)"] = compileMultiLine(startOptionRxp + `.*?` + endOptionRxp)
+	CompiledRegexpMap["selected"] = compileMultiLine(selectedRxp)
+	CompiledRegexpMap["start option"] = compileMultiLine(startOptionRxp)
+	CompiledRegexpMap["tag end"] = compileMultiLine(spaceRxp + `*>\z`)
+	CompiledRegexpMap["space+selected"] = compileMultiLine(spaceRxp + selectedRxp)
 }
 
 func (f Filler) compiledRegexp(key string) *regexp.Regexp {
@@ -240,7 +242,7 @@ func (f Filler) getName(tag []byte) []byte {
 }
 
 func (f Filler) escapeHTML(tag []byte) []byte {
-	return bytes.Replace(bytes.Replace(bytes.Replace(bytes.Replace(tag, []byte{'&'}, BAAmp, -1), []byte{'<'}, BALt, -1), []byte{'>'}, BAGt, -1), []byte{'"'}, BAQuot, -1)
+	return bytes.Replace(bytes.Replace(bytes.Replace(bytes.Replace(tag, []byte{'&'}, ampBytes, -1), []byte{'<'}, ltBytes, -1), []byte{'>'}, gtBytes, -1), []byte{'"'}, quotBytes, -1)
 }
 
 func (f Filler) getParam(name string) ([][]byte, bool) {
@@ -277,18 +279,18 @@ func (f Filler) fillInput(tag []byte) []byte {
 	}
 	paramValues, exists := f.getParam(name)
 
-	if bytes.Equal(inputType, BACheckbox) || bytes.Equal(inputType, BARadio) {
+	if bytes.Equal(inputType, checkboxBytes) || bytes.Equal(inputType, radioBytes) {
 		value := f.getValue(tag)
 
-		tag = f.compiledRegexp("space+checked").ReplaceAll(tag, BABlank)
+		tag = f.compiledRegexp("space+checked").ReplaceAll(tag, blankBytes)
 		for _, paramValue := range paramValues {
 			if bytes.Equal(paramValue, value) {
 				if !f.compiledRegexp("checked").Match(tag) {
-					tag = f.compiledRegexp("space+>").ReplaceAll(tag, BAChecked)
+					tag = f.compiledRegexp("space+>").ReplaceAll(tag, checkedBytes)
 				}
 			}
 		}
-	} else { // if bytes.Equal(inputType, BAText)
+	} else { // if bytes.Equal(inputType, textBytes)
 		var paramValue []byte
 		if !exists {
 			paramValue = []byte("")
@@ -298,7 +300,7 @@ func (f Filler) fillInput(tag []byte) []byte {
 		escapedValue := f.escapeHTML(paramValue)
 		reg := f.compiledRegexp("value(nocapture)")
 		if reg.Match(tag) {
-			tag = reg.ReplaceAll(tag, append([]byte(`value="`), append(escapedValue, BADQuot...)...))
+			tag = reg.ReplaceAll(tag, append([]byte(`value="`), append(escapedValue, doubleQuotBytes...)...))
 		} else {
 			tag = f.compiledRegexp("space+>").ReplaceAll(tag, append([]byte(` value="`), append(escapedValue, []byte(`"$1>`)...)...))
 		}
@@ -349,13 +351,13 @@ func (f Filler) fillOption(tag []byte, paramValues [][]byte) []byte {
 		value = f.compiledRegexp("option").ReplaceAll(tag, []byte(`$1`))
 	}
 
-	tag = f.compiledRegexp("space+selected").ReplaceAll(tag, BABlank)
+	tag = f.compiledRegexp("space+selected").ReplaceAll(tag, blankBytes)
 	for _, paramValue := range paramValues {
 		if bytes.Equal(paramValue, value) {
 			if !f.compiledRegexp("selected").Match(tag) {
 				tag = f.compiledRegexp("start option").ReplaceAllFunc(tag,
 					func(tag []byte) []byte {
-						return f.compiledRegexp("tag end").ReplaceAll(tag, BASelected)
+						return f.compiledRegexp("tag end").ReplaceAll(tag, selectedBytes)
 					})
 			}
 		}
