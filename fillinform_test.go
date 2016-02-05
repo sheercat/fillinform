@@ -79,7 +79,7 @@ func TestGetType(t *testing.T) {
 	for key, val := range TesteeArray {
 		hoge := filler.getType([]byte(val))
 		if string(hoge) != "hoge" {
-			t.Errorf("error in ", key)
+			t.Errorf("error in %v", key)
 		}
 	}
 }
@@ -99,7 +99,7 @@ func TestGetValue(t *testing.T) {
 	for key, val := range TesteeArray {
 		hoge := filler.getValue([]byte(val))
 		if string(hoge) != "hoge" {
-			t.Errorf("error in ", key)
+			t.Errorf("error in %v", key)
 		}
 	}
 }
@@ -119,7 +119,7 @@ func TestGetName(t *testing.T) {
 	for key, val := range TesteeArray {
 		hoge := filler.getName([]byte(val))
 		if string(hoge) != "hoge" {
-			t.Errorf("error in ", key)
+			t.Errorf("error in %v", key)
 		}
 	}
 }
@@ -149,7 +149,7 @@ func TestEscapeHTML(t *testing.T) {
 		res := []byte(mapval["return"])
 		hoge := filler.escapeHTML(val)
 		if !bytes.Equal(hoge, res) {
-			t.Errorf("error in ", key, string(res))
+			t.Errorf("error in %v %v", key, string(res))
 		}
 	}
 }
@@ -174,27 +174,27 @@ func TestFillInput(t *testing.T) {
 
 	htmlstr := filler.fillInput([]byte(`<input type="text" name="title"/>`))
 	if string(htmlstr) != `<input type="text" name="title" value="hoge &amp; Hoge &lt;&quot;Title&quot;&gt;"/>` {
-		t.Errorf("fillInput error: ", string(htmlstr))
+		t.Errorf("fillInput error: %v", string(htmlstr))
 	}
 
 	htmlstr = filler.fillInput([]byte(`<input type="checkbox" name="chk" value="chkval" checked=checked/>`))
 	if string(htmlstr) != `<input type="checkbox" name="chk" value="chkval" checked="checked"/>` {
-		t.Errorf("no affect error: ", string(htmlstr))
+		t.Errorf("no affect error: %v", string(htmlstr))
 	}
 
 	htmlstr = filler.fillInput([]byte(`<input type="radio" name="rdo" value="rdoval1" checked=checked/>`))
 	if string(htmlstr) != `<input type="radio" name="rdo" value="rdoval1"/>` {
-		t.Errorf("fillout error: ", string(htmlstr))
+		t.Errorf("fillout error: %v", string(htmlstr))
 	}
 
 	htmlstr = filler.fillInput([]byte(`<input type="radio" name="rdo" value="rdoval2" />`))
 	if string(htmlstr) != `<input type="radio" name="rdo" value="rdoval2" checked="checked"/>` {
-		t.Errorf("fillin error: ", string(htmlstr))
+		t.Errorf("fillin error: %v", string(htmlstr))
 	}
 
 	htmlstr = filler.fillInput([]byte(`<input type="submit" value="Send">`))
 	if string(htmlstr) != `<input type="submit" value="Send">` {
-		t.Errorf("no fill error: ", string(htmlstr))
+		t.Errorf("no fill error: %v", string(htmlstr))
 	}
 }
 
@@ -220,15 +220,15 @@ func TestFillTextarea(t *testing.T) {
 
 	htmlstr := filler.fillTextarea([]byte(`<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge"></textarea>`))
 	if string(htmlstr) != `<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">hoge &amp; hoge &lt;hoge@hogehoge&gt;</textarea>` {
-		t.Errorf("fillTextarea error: ", string(htmlstr))
+		t.Errorf("fillTextarea error: %v", string(htmlstr))
 	}
 	htmlstr = filler.fillTextarea([]byte(`<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">gakuburu</textarea>`))
 	if string(htmlstr) != `<textarea id="body" name="body" cols="80" rows="20" placeholder="hoge">hoge &amp; hoge &lt;hoge@hogehoge&gt;</textarea>` {
-		t.Errorf("fillTextarea error: ", string(htmlstr))
+		t.Errorf("fillTextarea error: %v", string(htmlstr))
 	}
 	htmlstr = filler.fillTextarea([]byte(`<textarea id="body" name="bodyX" cols="80" rows="20" placeholder="hoge">gakuburu</textarea>`))
 	if string(htmlstr) != `<textarea id="body" name="bodyX" cols="80" rows="20" placeholder="hoge"></textarea>` {
-		t.Errorf("no affect error: ", string(htmlstr))
+		t.Errorf("no affect error: %v", string(htmlstr))
 	}
 }
 
@@ -267,7 +267,7 @@ func TestFillSelect(t *testing.T) {
     <option value="5">5</option>
     <option value="6">6</option>
   </select>` {
-		t.Errorf("fillTextarea error: ", string(htmlstr))
+		t.Errorf("fillTextarea error: %v", string(htmlstr))
 	}
 
 	htmlstr = filler.fillSelect([]byte(`<select name="select">
@@ -286,7 +286,7 @@ func TestFillSelect(t *testing.T) {
     <option value="5">5</option>
     <option value="6">6</option>
   </select>` {
-		t.Errorf("fillTextarea error: ", string(htmlstr))
+		t.Errorf("fillTextarea error: %v", string(htmlstr))
 	}
 
 	htmlstr = filler.fillSelect([]byte(`<select name="selectX">
@@ -305,7 +305,7 @@ func TestFillSelect(t *testing.T) {
     <option value="5">5</option>
     <option value="6">6</option>
   </select>` {
-		t.Errorf("no affect error: ", string(htmlstr))
+		t.Errorf("no affect error: %v", string(htmlstr))
 	}
 
 	formData2 := map[string][]string{
@@ -328,7 +328,7 @@ func TestFillSelect(t *testing.T) {
     <option value="5">5</option>
     <option value="6">6</option>
   </select>` {
-		t.Errorf("multiple error: ", string(htmlstr))
+		t.Errorf("multiple error: %v", string(htmlstr))
 	}
 
 	htmlstr = filler2.fillSelect([]byte(`<select name="select">
@@ -347,7 +347,7 @@ func TestFillSelect(t *testing.T) {
     <option value="5">5</option>
     <option value="6">6</option>
   </select>` {
-		t.Errorf("no multiple error: ", string(htmlstr))
+		t.Errorf("no multiple error: %v", string(htmlstr))
 	}
 }
 
@@ -382,16 +382,16 @@ func TestFillOption(t *testing.T) {
 
 	htmlstr := filler.fillOption([]byte(`<option value="1">1</option>`), [][]byte{[]byte(`1`)})
 	if string(htmlstr) != `<option value="1" selected="selected">1</option>` {
-		t.Errorf("fillOption error: ", string(htmlstr))
+		t.Errorf("fillOption error: %v", string(htmlstr))
 	}
 
 	htmlstr = filler.fillOption([]byte(`<option value="1">1</option>`), [][]byte{[]byte(`2`)})
 	if string(htmlstr) != `<option value="1">1</option>` {
-		t.Errorf("fillOption error: ", string(htmlstr))
+		t.Errorf("fillOption error: %v", string(htmlstr))
 	}
 	htmlstr = filler.fillOption([]byte(`<option>1</option>`), [][]byte{[]byte(`1`)})
 	if string(htmlstr) != `<option selected="selected">1</option>` {
-		t.Errorf("fillOption error: ", string(htmlstr))
+		t.Errorf("fillOption error: %v", string(htmlstr))
 	}
 
 }
@@ -460,7 +460,7 @@ func TestFillinForm(t *testing.T) {
 	htmlstr := filler.fill([]byte(HTML))
 
 	if string(htmlstr) != HTMLSuccess {
-		t.Errorf("fillinform error: ", string(htmlstr))
+		t.Errorf("fillinform error: %v", string(htmlstr))
 	}
 }
 
@@ -495,7 +495,7 @@ func TestFillinForm2(t *testing.T) {
 	htmlstr := filler.fill([]byte(HTML))
 
 	if string(htmlstr) != HTMLSuccess {
-		t.Errorf("fillinform error: ", string(htmlstr))
+		t.Errorf("fillinform error: %v", string(htmlstr))
 	}
 }
 
@@ -654,21 +654,21 @@ func TestFillinFormOptions(t *testing.T) {
 	htmlstr := filler.fill([]byte(HTMLMulti))
 
 	if string(htmlstr) != HTMLMultiSuccess {
-		t.Errorf("fillinform error: ", string(htmlstr))
+		t.Errorf("fillinform error: %v", string(htmlstr))
 	}
 
 	filler = newFiller(formData, map[string]interface{}{"FillPassword": true})
 	htmlstr = filler.fill([]byte(HTMLPassword))
 
 	if string(htmlstr) != HTMLPasswordSuccess {
-		t.Errorf("fillinform error: ", string(htmlstr))
+		t.Errorf("fillinform error: %v", string(htmlstr))
 	}
 
 	filler = newFiller(formData, map[string]interface{}{"IgnoreFields": []string{"title", "rdo"}})
 	htmlstr = filler.fill([]byte(HTMLFields))
 
 	if string(htmlstr) != HTMLFieldsSuccess {
-		t.Errorf("fillinform error: ", string(htmlstr))
+		t.Errorf("fillinform error: %v", string(htmlstr))
 	}
 }
 
